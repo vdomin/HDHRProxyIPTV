@@ -162,8 +162,8 @@ int CServiceW::IsServiceInstalled()
 
 int CServiceW::StartServiceWin()
 {
-	char textErr[200];
-	memset(textErr, 0, 200);
+	char textErr[1024];
+	memset(textErr, 0, 1024);
 	CString sErr;
 
 	//
@@ -171,7 +171,7 @@ int CServiceW::StartServiceWin()
 	if (m_HandleSCManager == NULL)
 	{
 		int err = GetLastError();
-		_snprintf_s(textErr, 200 - 2, "Err %d", err);
+		_snprintf_s(textErr, sizeof(textErr) - 2, "Err %d", err);
 		sErr.Format(L"Error %d",err);
 		AfxMessageBox(sErr, MB_OK);
 		ObtainError(err);

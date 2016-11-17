@@ -44,6 +44,8 @@ CTrace::~CTrace()
 
 void CTrace::InitializeTrace(int nivelTrz)
 {
+	char cdatetime[60];
+
 	m_traceLevel = nivelTrz;
 
 	if (m_traceLevel != NO_TRACE)
@@ -53,7 +55,10 @@ void CTrace::InitializeTrace(int nivelTrz)
 		if (m_traceFile)
 			WriteTrace("Start LOG of Proxy traces\n", LEVEL_TRZ_2);
 		else
-			fprintf(m_traceFile, "%s  :: [ERROR] It has not generated the trace file\n", ObtainCurrentDateTime());
+		{
+			ObtainCurrentDateTime(cdatetime, sizeof(cdatetime));
+			fprintf(m_traceFile, "%s  :: [ERROR] It has not generated the trace file\n", cdatetime);
+		}
 
 		fclose(m_traceFile);
 	}
@@ -68,17 +73,17 @@ void CTrace::StopTrace()
 	}
 }
 
-char* CTrace::ObtainCurrentDateTime()
+void CTrace::ObtainCurrentDateTime(char* datetime, int size)
 {
 	SYSTEMTIME st;
-	char* dateTime = new char[40];
-	memset(dateTime, 0, 40);
+	//char* dateTime = new char[40];
+	memset(datetime, 0, size);
 	
 	GetLocalTime(&st);
 
-	_snprintf(dateTime, 40 - 2, "%02d/%02d/%04d %02d:%02d:%02d", st.wDay, st.wMonth, st.wYear, st.wHour, st.wMinute, st.wSecond);
+	_snprintf(datetime, size - 2, "%02d/%02d/%04d %02d:%02d:%02d", st.wDay, st.wMonth, st.wYear, st.wHour, st.wMinute, st.wSecond);
 
-	return dateTime;
+	//return dateTime;
 }
 
 void CTrace::WriteTraceForceLevel(char *traza, int level)
@@ -95,26 +100,32 @@ void CTrace::WriteTraceForceLevel(char *traza, int level)
 
 void CTrace::WriteTrace(char *traza, int level)
 {
-	CRITICAL_SECTION m_cs; //Critical section
-	InitializeCriticalSection(&m_cs); //Initialize criticaL section
-
-	EnterCriticalSection(&m_cs);
-
 	m_traceLevel = m_cfgProxy->m_traceLevel;
 
 	if (m_traceLevel == NO_TRACE)
 		return;
 
-	if (level <= m_traceLevel || level == ERR || level == WRNG)
+	if (level > m_traceLevel && level != ERR && level != WRNG)
+		return;
+
+	CRITICAL_SECTION m_cs; //Critical section
+	InitializeCriticalSection(&m_cs); //Initialize criticaL section
+
+	EnterCriticalSection(&m_cs);
+
+	if (1)
 	{
+		char cdatetime[60];
+		ObtainCurrentDateTime(cdatetime, sizeof(cdatetime));
+
 		m_traceFile = fopen(TRACE_FILE_NAME, "a+");
 
 		if (level == ERR)
-			fprintf(m_traceFile, "%s	:: [ERROR]   %s", ObtainCurrentDateTime(), traza);
+			fprintf(m_traceFile, "%s	:: [ERROR]   %s", cdatetime, traza);
 		else if (level == WRNG)
-			fprintf(m_traceFile, "%s	:: [WARNING] %s", ObtainCurrentDateTime(), traza);
+			fprintf(m_traceFile, "%s	:: [WARNING] %s", cdatetime, traza);
 		else
-			fprintf(m_traceFile, "%s	:: [LEVEL_%d] %s", ObtainCurrentDateTime(), level, traza);
+			fprintf(m_traceFile, "%s	:: [LEVEL_%d] %s", cdatetime, level, traza);
 
 		fclose(m_traceFile);
 	}
@@ -146,23 +157,26 @@ int CTrace::IsPrintable(char* cad)
 	return 1;
 }
 
+
 char* CTrace::ConvertToHex(char* cad)
 {
-	int tam = strlen(cad) * 5 + 1;
-	char* hexstr = new char[tam+2];
+	int tam = strlen(cad) * 7 + 1;
+	char* hexstr = new char[tam+7+2];
 	int i = 0;
-	_snprintf(hexstr + i * 5, 5, "0x%02x ", cad[i]);
+	_snprintf(hexstr + i * 7, 7, "0x%04x ", cad[i]);
 
 	for (i = 1; i<strlen(cad); i++) {
 		if (cad[i] == ' ')
-			_snprintf(hexstr + i * 5, 5, "     ");
+			_snprintf(hexstr + i * 7, 7, "       ");
 		else
-			_snprintf(hexstr + i * 5, 5, " 0x%02x", cad[i]);
+			_snprintf(hexstr + i * 7, 7, " 0x%04x", cad[i]);
 	}
-	hexstr[i*5] = 0;
+	hexstr[i*7] = 0;
 
 	CString aux(hexstr);
 
+	aux.Replace(L"         ", L" ");
+	aux.Replace(L"        ", L" ");
 	aux.Replace(L"       ", L" ");
 	aux.Replace(L"      ", L" ");
 	aux.Replace(L"     ", L" ");

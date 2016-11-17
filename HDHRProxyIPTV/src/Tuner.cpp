@@ -27,30 +27,32 @@
 
 CTuner::CTuner()
 {
+	m_cfgProxy = CConfigProxy::GetInstance();
+
 	canal = 0;
 	channelNotInMapList = 0;
+//	tuner = numTuner;
 	state = STANDBY; //Initial state will be STANDBY
-	lock = new char[15];
-	strcpy(lock, "none");
+	//lock = new char[15];  // Best create on declaration
+	strcpy(lock, NONE);
 	ss = 0;
 	snq = 0;
 	seq = 0;
 	bps = 0;
 	pps = 0;
 	program = 0;
-	filter = (char*)malloc(MAX_SIZE_FILTER);
+	//filter = (char*)malloc(MAX_SIZE_FILTER);  // Best create on declaration
 	strcpy(filter, "0x0000-0x1FFF");
 	strcpy(target, "none");
-	strcpy(channelmap, TUNERX_CHANNELMAP_VALUE);
+	//strcpy(channelmap, TUNERX_CHANNELMAP_VALUE);
+	strncpy(channelmap, CStringA(m_cfgProxy->sys_channelmap), 11);
 	lockkey = 0;
 	strcpy(IPLockkey, "");
 	pidsToFiltering.Format(L"");
 	transportTuner = new CTransport();
-	
-	m_cfgProxy = CConfigProxy::GetInstance();
 
 	initiazedByCli = 0;
-	timer1_secs = m_cfgProxy->getTimerResponseClient();
+	timer1_secs = 25;
 
 	m_traces = new CTrace();
 }
@@ -61,6 +63,7 @@ CTuner::~CTuner()
 
 	delete m_traces;
 }
+
 
 void CTuner::ChangeStateToStandby()
 {
@@ -78,11 +81,18 @@ void CTuner::ChangeStateToStandby()
 	pidsToFiltering.Format(L"");
 	strcpy(filter, "0x0000-0x1FFF");
 	strcpy(target, "none");
+	lockkey = 0;
+	strcpy(IPLockkey, "");
 
 	//Receiving treatment is stopped
 	if (transportTuner->getPerformSend())
 	{
 		transportTuner->setPerformSend(0, tuner);
+/*		transportTuner->ChangeFilterPIDsList(pidsToFiltering,
+			0,
+			0,
+			canal);
+*/
 	}
 }
 
@@ -93,12 +103,13 @@ void CTuner::ChangeStateToTunedChan(long chan)
 	state = TUNED_CHAN;
 	int ch = m_cfgProxy->ObtainIndexChannel(canal);
 
-	strcpy(lock, lock_DEF);
+	strcpy(lock, NONE);
 	ss = m_cfgProxy->m_infoChannels[ch].signalStrength;
 	snq = m_cfgProxy->m_infoChannels[ch].signalQuality;
 	seq = m_cfgProxy->m_infoChannels[ch].symbolQuality;
 	bps = m_cfgProxy->m_infoChannels[ch].networkRate;
 	pps = m_cfgProxy->m_infoChannels[ch].networkRate;
+//	pps = 1;
 
 	program = 0;
 	pidsToFiltering.Format(L"");
@@ -106,6 +117,10 @@ void CTuner::ChangeStateToTunedChan(long chan)
 	strcpy(target, "none");
 	transportTuner->setPerformSend(0, tuner);
 
+//	transportTuner->ChangeFilterPIDsList(pidsToFiltering,
+//		m_cfgProxy->getInternalPIDFilteringOfChannel(canal),
+//		m_cfgProxy->getExternalPIDFilteringOfChannel(canal),
+//		canal);
 	transportTuner->setPerformSend(0, tuner);
 	transportTuner->ChangeFilterPIDsList(pidsToFiltering,
 		m_cfgProxy->getInternalPIDFilteringOfChannel(canal),
@@ -115,12 +130,15 @@ void CTuner::ChangeStateToTunedChan(long chan)
 
 void CTuner::ChangeStateToFilteringByProgram(int prog)
 {
+	m_traces->WriteTrace("CONTROL    :: called in CTuner::ChangeStateToFilteringByProgram()\n", LEVEL_TRZ_4);
+
 	if (prog != 0)
 	{
 		program = prog;
-
+//		if (m_cfgProxy->getInternalPIDFilteringOfChannel(canal))
 		pidsToFiltering = m_cfgProxy->findPidsOfProgram(canal, program);
-
+//		else
+//			pidsToFiltering.Format(L"");
 		strcpy(filter, "0x0000-0x1FFF");
 		strcpy(target, "none");
 
@@ -194,11 +212,24 @@ int CTuner::ChangeStateToStreaming(char* targ)
 		}
 		else if (res == 0)
 		{
+			/*
+			//Change to FILTERING state
+			state = FILTERING;
+			strcpy(target, "none");
+			ss = 0;
+			snq = 0;
+			seq = 0;
+			bps = 0;
+			pps = 0;
+			*/
 			int ch = m_cfgProxy->ObtainIndexChannel(canal);
 			transportTuner->setPerformSend(1, tuner);
 			ss = m_cfgProxy->m_infoChannels[ch].signalStrength;
 			snq = m_cfgProxy->m_infoChannels[ch].signalQuality;
 			seq = m_cfgProxy->m_infoChannels[ch].symbolQuality;
+//			ss = 1;
+//			snq = 0;
+//			seq = 0;
 			bps = 0;
 			pps = 0;
 		}
@@ -207,13 +238,18 @@ int CTuner::ChangeStateToStreaming(char* targ)
 	{
 		strcpy(target, "none");
 		transportTuner->setPerformSend(0, tuner);
+
+//		m_traces->WriteTrace("DBG        :: Target to none\n", LEVEL_TRZ_5);
 	}
 
 	return state;
 }
 
+
 void CTuner::ChangeStateToFilteringByFilter(char* filt, char* ip)
 {
+	m_traces->WriteTrace("CONTROL    :: called in CTuner::ChangeStateToFilteringByFilter()\n", LEVEL_TRZ_6);
+
 	int lon = strlen(filt);
 
 	if (lon == 0)
@@ -223,12 +259,36 @@ void CTuner::ChangeStateToFilteringByFilter(char* filt, char* ip)
 	}
 	else
 	{
-		strncpy(filter, filt, MAX_SIZE_FILTER);
+/*		if (!m_traces->IsPrintable(filt))
+		{
+			if (lon * 5 + 1 > MAX_SIZE_FILTER) {
+				m_traces->WriteTrace("CONTROL    :: realloc in CTuner::ChangeStateToFilteringByFilter()\n", LEVEL_TRZ_1);
+				filter = (char*)realloc(filter, (lon * 5 + 1) * sizeof(char *));
+			}
+			filter = m_traces->ConvertToHex(filt);
 
-		if (strcmp(filter, "0x0000-0x1FFF"))
-			pidsToFiltering = ConvertHexPidsListToNum(CString(filter));
+			if (strcmp(filter, "0x0000-0x1FFF"))
+				pidsToFiltering = ConvertHexPidsListToNum(CString(filter));
+			else
+				pidsToFiltering.Format(L"");
+		}
 		else
-			pidsToFiltering.Format(L"");
+*/
+		if (1)
+		{
+			if (lon + 1 > MAX_SIZE_FILTER) {
+				//m_traces->WriteTrace("CONTROL    :: realloc in CTuner::ChangeStateToFilteringByFilter()\n", LEVEL_TRZ_1);
+				//filter = (char*)realloc(filter, (lon + 1) * sizeof(char *));
+				lon = MAX_SIZE_FILTER;
+				filt[lon] = '\0';
+			}
+			strcpy(filter, filt);
+
+			if (strcmp(filter, "0x0000-0x1FFF") != 0)
+				pidsToFiltering = ConvertHexPidsListToNum(CString(filter));
+			else
+				pidsToFiltering.Format(L"");
+		}
 
 		transportTuner->ChangeFilterPIDsList(pidsToFiltering,
 			m_cfgProxy->getInternalPIDFilteringOfChannel(canal),
@@ -236,30 +296,34 @@ void CTuner::ChangeStateToFilteringByFilter(char* filt, char* ip)
 			canal);
 	}
 
-	char* log_output = new char[3000];
+	//char* log_output = new char[strlen(filter) + 80];
+	char log_output[3000];
 	memset(log_output, 0, 3000);
 
 	if (state == TUNED_CHAN)
 	{
 		state = FILTERING;
 		if (m_traces->IsLevelWriteable(LEVEL_TRZ_2))
-			_snprintf(log_output, 3000 - 2, "CONTROL    :: Change State of Tuner%d: FLTR [%s] : PID filtering: %s\n", tuner, ip, CStringA(pidsToFiltering));
+		{
+			_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: FLTR [%s] : PID filtering: %s\n", tuner, ip, CStringA(pidsToFiltering));
+			m_traces->WriteTrace(log_output, LEVEL_TRZ_2);
+		}
 	}
 	else if (state == FILTERING
 		|| state == STREAMING)
 	{
 		if (m_traces->IsLevelWriteable(LEVEL_TRZ_2))
-			_snprintf(log_output, 3000 - 2, "CONTROL    :: Change PID filtering Tuner%d  [%s] : PID filtering: %s\n", tuner, ip, CStringA(pidsToFiltering));
+		{
+			_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change PID filters [%s] : PID filtering: %s\n", tuner, ip, CStringA(pidsToFiltering));
+			m_traces->WriteTrace(log_output, LEVEL_TRZ_2);
+		}
 	}
-
-	if (m_traces->IsLevelWriteable(LEVEL_TRZ_2))
-		m_traces->WriteTrace(log_output, LEVEL_TRZ_2);
-
-	delete[]log_output;
 }
 
 void CTuner::ChangePIDsByFilterInStreaming(char* filt, char* ip)
 {
+	m_traces->WriteTrace("CONTROL    :: called CTuner::ChangePIDsByFilterInStreaming()\n", LEVEL_TRZ_6);
+
 	int lon = strlen(filt);
 
 	if (lon == 0)
@@ -269,12 +333,41 @@ void CTuner::ChangePIDsByFilterInStreaming(char* filt, char* ip)
 	}
 	else
 	{
-		strncpy(filter, filt, MAX_SIZE_FILTER);
+/*		if (!m_traces->IsPrintable(filt))
+		{
+			if (lon * 5 + 1 > MAX_SIZE_FILTER) {
+				m_traces->WriteTrace("CONTROL    :: realloc in CTuner::ChangePIDsByFilterInStreaming()\n", LEVEL_TRZ_1);
 
-		if (strcmp(filter, "0x0000-0x1FFF"))
-			pidsToFiltering = ConvertHexPidsListToNum(CString(filter));
+				filter = (char*)realloc(filter, (lon * 5 + 1) * sizeof(char *));
+			}
+
+			filter = m_traces->ConvertToHex(filt);
+
+			if (strcmp(filter, "0x0000-0x1FFF"))
+				pidsToFiltering = ConvertHexPidsListToNum(CString(filter));
+			else
+				pidsToFiltering.Format(L"");
+		}
 		else
-			pidsToFiltering.Format(L"");
+*/
+		if (1)
+		{
+			if (lon + 1 > MAX_SIZE_FILTER) {
+				//m_traces->WriteTrace("CONTROL    :: realloc in CTuner::ChangePIDsByFilterInStreaming()\n", LEVEL_TRZ_1);
+				//filter = (char*)realloc(filter, (lon + 1) * sizeof(char *));
+				lon = MAX_SIZE_FILTER;
+				filt[lon] = '\0';
+			}
+
+			strcpy(filter, filt);
+
+			if (strcmp(filter, "0x0000-0x1FFF") != 0)
+				pidsToFiltering = ConvertHexPidsListToNum(CString(filter));
+			else
+				pidsToFiltering.Format(L"");
+		}
+
+
 	}
 
 	transportTuner->ChangeFilterPIDsList(pidsToFiltering,
@@ -282,23 +375,28 @@ void CTuner::ChangePIDsByFilterInStreaming(char* filt, char* ip)
 		m_cfgProxy->getExternalPIDFilteringOfChannel(canal),
 		canal);
 
-	if (m_traces->IsLevelWriteable(LEVEL_TRZ_2))
+	if (m_traces->IsLevelWriteable(LEVEL_TRZ_3))
 	{
-		char* log_output = new char[1024];
-		memset(log_output, 0, 1024);
-		_snprintf(log_output, 1024 - 2, "CONTROL    :: Change PIDs list Tuner%d      [%s] : State is STRM. Pids change by Filter: %s\n", tuner, ip, CStringA(pidsToFiltering));
-
-		m_traces->WriteTrace(log_output, LEVEL_TRZ_2);
-
-		delete[]log_output;
+		// It's a CONTROL message, but very frequent, then level_3
+		char log_output[8192];
+		memset(log_output, 0, 8192);
+		_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change PIDs list   [%s] : State is STRM. Pids change by Filter: %s [%s]\n", tuner, ip, CStringA(pidsToFiltering), filt);
+		m_traces->WriteTrace(log_output, LEVEL_TRZ_3);
 	}
 
 	if (m_cfgProxy->getExternalPIDFilteringOfChannel(canal))
-		transportTuner->SendGetHTTPRequest();
+	{
+		int ret;
+		ret = transportTuner->SendGetHTTPRequest();
+		if (ret < 1 )
+			m_traces->WriteTrace("CONTROL    :: Resend HTTP Request fails!\n", LEVEL_TRZ_4);
+	}
 }
 
 void CTuner::ChangePIDsByProgramInStreaming(int prog, char* ip)
 {
+	m_traces->WriteTrace("CONTROL    :: called in CTuner::ChangePIDsByProgramInStreaming()\n", LEVEL_TRZ_6);
+
 	if (prog != 0)
 	{
 		program = prog;
@@ -321,7 +419,7 @@ void CTuner::ChangePIDsByProgramInStreaming(int prog, char* ip)
 	{
 		char log_output[1024];
 		memset(log_output, 0, 1024);
-		_snprintf(log_output, 1024 - 2, "CONTROL    :: Change PIDs list Tuner%d      [%s] : State is STRM. Pids change by Program: %s\n", tuner, ip, CStringA(pidsToFiltering));
+		_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change PIDs list   [%s] : State is STRM. Pids change by Program: %s\n", tuner, ip, CStringA(pidsToFiltering));
 		m_traces->WriteTrace(log_output, LEVEL_TRZ_2);
 	}
 	
@@ -340,12 +438,23 @@ CString CTuner::ConvertHexPidsListToNum(CString filterpids)
 		return numericPids;
 	}
 
+
+	//m_traces->WriteTrace("CONTROL    :: called CTuner::ConvertHexPidsListToNum()\n", LEVEL_TRZ_6);
+
 	int index = 0, index1 = 0, index2 = 0, index3 = 0, indexFin = 0, index1Fin = 0;
 	int pid1 = 0, pid2 = 0;
 	CString pid;
 
 	index = filterpids.Find(L" ", 0);
 	index1 = filterpids.Find(L"-", 0);
+
+	if (index < 0 && index1 < 0)
+	{
+		// Only one number? Append " " at end!
+		filterpids.AppendChar(' ');
+		index = filterpids.Find(L" ", 0);
+		m_traces->WriteTrace("CONTROL    :: CTuner::ConvertHexPidsListToNum() special case!\n", LEVEL_TRZ_6);
+	}
 
 	if ((index != -1 || index1 != -1))
 	{
@@ -465,6 +574,7 @@ CString CTuner::ConvertHexPidsListToNum(CString filterpids)
 		}
 	}
 
+	//m_traces->WriteTrace("CONTROL    :: returning CTuner::ConvertHexPidsListToNum()\n", LEVEL_TRZ_6);
 	return numericPids;
 }
 
@@ -472,6 +582,7 @@ CString CTuner::ConvertHexPidsListToNum(CString filterpids)
 void CTuner::SetTimers()
 {
 	GetLocalTime(&timer1);
+//	GetLocalTime(&timer2);
 
 	initiazedByCli = 1;
 }
@@ -527,7 +638,22 @@ _int64 CTuner::CompareSystemTime(SYSTEMTIME st1, SYSTEMTIME st2)
 	1 Microseconds = 1000 Nanoseconds
 	*/
 
+//	res = (ft2.ul.QuadPart - ft1.ul.QuadPart) * 100; //nanoseconds
 	res = (ft2.ul.QuadPart - ft1.ul.QuadPart) * 100 /1000000000; //nanoseconds
 
 	return res;
+}
+
+int CTuner::getReadBufferStatus()
+{
+	int val = (transportTuner->readBufferPos * 100) / transportTuner->readBufferSize;
+	return val;
+}
+
+// Returns status (0-100)% of the used Ring Buffer.
+int CTuner::getRingBufferStatus()
+{
+	//return 45;
+	int val = transportTuner->m_basicRingBuffer->GetUsedSpace();
+	return val;
 }

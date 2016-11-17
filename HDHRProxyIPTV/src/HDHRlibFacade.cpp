@@ -39,7 +39,7 @@ HDHRlibFacade::HDHRlibFacade()
 HDHRlibFacade::~HDHRlibFacade()
 {
 	delete []m_sRemoteIPControl;
-	delete[] new char[15];
+	delete []m_sRemoteIPDisc;
 }
 
 void HDHRlibFacade::setIPHDHR(CString ip)
@@ -78,14 +78,17 @@ void HDHRlibFacade::StopSocketServUDP_Discovery()
 	closesocket(m_sockDiscovery);
 }
 
-char* HDHRlibFacade::TreatIP(char *ip)
+void HDHRlibFacade::TreatIP(char *out, char* ip)
 {
 	char * tok;
-	char tmp[10];
-	memset(tmp, 0, 10);
+	char tmp[16];
 	char ipRes[16];
+
+	memset(tmp, 0, 16);
+	memset(ipRes, 0, 16);
+
 	tok = strtok(ip, ".");
-	_snprintf(tmp, 5, "%03s", tok);
+	_snprintf(tmp, 4, "%03s", tok);
 	strcpy(ipRes, tmp);
 
 	while (tok != NULL)
@@ -93,13 +96,21 @@ char* HDHRlibFacade::TreatIP(char *ip)
 		tok = strtok(NULL, ".");
 		if (tok != NULL)
 		{
-			_snprintf(tmp, 5, ".%03s", tok);
+			_snprintf(tmp, 4, ".%03s", tok);
 			strcat(ipRes, tmp);
 		}
 	}
-	delete[]tok;
-
-	return ipRes;
+	//delete[]tok;   // Bug top is pointer only!
+	//return ipRes;  // Bug, ipRes is internal string!
+	memcpy(out, ipRes, 16);
+	/*
+	if (trz->IsLevelWriteable(LEVEL_TRZ_6))
+	{
+		char trace[256];
+		_snprintf(trace, trace_length - 2, "CONTROL    :: HDHRlibFacade::TreatIP() input='%s' output='%s' \n", ip, out);
+		trz->WriteTrace(trace, LEVEL_TRZ_6);
+	}
+	*/
 }
 
 int HDHRlibFacade::ReceiveDataDiscoveryUDP(CTrace *traceLog)
@@ -120,9 +131,9 @@ int HDHRlibFacade::ReceiveDataDiscoveryUDP(CTrace *traceLog)
 	struct sockaddr_in adr;
 	u_long ip = htonl(m_remoteIPDisc);
 	adr.sin_addr.s_addr = ip;
-	m_sRemoteIPDisc = inet_ntoa(adr.sin_addr);
-
-	strcpy(m_sRemoteIPDisc, TreatIP(m_sRemoteIPDisc));
+	//m_sRemoteIPDisc = inet_ntoa(adr.sin_addr);  // Bug, m_sRemoteIPDisc is a pointer to char* new[]!
+	//strcpy(m_sRemoteIPDisc, TreatIP(m_sRemoteIPDisc));
+	TreatIP(m_sRemoteIPDisc, inet_ntoa(adr.sin_addr));
 
 	//Process the received data.Checked if it is the expected message : UDP Discovery
 	
@@ -237,12 +248,13 @@ int HDHRlibFacade::Accept(char* ip, int* port, SOCKET* sock)
 	
 	m_remotePortControl = ntohs(serv.sin_port);
 	m_iRemoteIPControl = ntohl(serv.sin_addr.s_addr);
-	m_sRemoteIPControl = inet_ntoa(serv.sin_addr);
-	
-	strcpy(ip, m_sRemoteIPControl);
-	strcpy(ip, TreatIP(ip));
-	*port = m_remotePortControl;
+	//m_sRemoteIPControl = inet_ntoa(serv.sin_addr);  // Bug, m_sRemoteIPControl is pointer to char* new[];
+	strcpy(m_sRemoteIPControl, inet_ntoa(serv.sin_addr));
 
+	//strcpy(ip, m_sRemoteIPControl);
+	//strcpy(ip, TreatIP(ip));
+	TreatIP(ip, m_sRemoteIPControl);
+	*port = m_remotePortControl;
 	*sock = m_sockControlAccept;
 
 	return 1;
@@ -299,8 +311,8 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 	char auxString[1024];
 	memset(auxString, 0, 1024);
 	uint8_t *next = NULL;
-	char *log_output = new char[1024];
-	memset(log_output, 0, 1024);
+	char log_output[4096];
+	memset(log_output, 0, 4096);
 	(*infoMsg)->setMsg = 0;
 	strcpy((*infoMsg)->setValue, "");
 	strcpy((char*)(*infoMsg)->RequestMsg, "");
@@ -346,7 +358,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 			{
 				for (int i = 0; i < tunersNum; i++)
 				{
-					_snprintf(auxString, 1024 - 2, TUNERX_STATUS, i);
+					_snprintf(auxString, sizeof(auxString) - 2, TUNERX_STATUS, i);
 
 					if (!strcmp(value, auxString))
 					{
@@ -363,7 +375,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 			{
 				for (int i = 0; i < tunersNum; i++)
 				{
-					_snprintf(auxString, 1024 - 2, TUNERX_TARGET, i);
+					_snprintf(auxString, sizeof(auxString) - 2, TUNERX_TARGET, i);
 
 					if (!strcmp(value, auxString))
 					{
@@ -396,7 +408,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 			{
 				for (int i = 0; i < tunersNum; i++)
 				{
-					_snprintf(auxString, 1024 - 2, TUNERX_STREAMINFO, i);
+					_snprintf(auxString, sizeof(auxString) - 2, TUNERX_STREAMINFO, i);
 
 					if (!strcmp(value, auxString))
 					{
@@ -413,7 +425,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 			{
 				for (int i = 0; i < tunersNum; i++)
 				{
-					_snprintf(auxString, 1024 - 2, TUNERX_CHANNELMAP, i);
+					_snprintf(auxString, sizeof(auxString) - 2, TUNERX_CHANNELMAP, i);
 
 					if (!strcmp(value, auxString))
 					{
@@ -446,7 +458,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 			{
 				for (int i = 0; i < tunersNum; i++)
 				{
-					_snprintf(auxString, 1024 - 2, TUNERX_PROGRAM, i);
+					_snprintf(auxString, sizeof(auxString) - 2, TUNERX_PROGRAM, i);
 
 					if (!strcmp(value, auxString))
 					{
@@ -510,11 +522,12 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 			}
 			else if (strcmp(value, SYS_DEBUG) == 0)
 				tipo_msg = SYS_DEBUG_MSG;
+
 			else if (strstr(value, "/filter") != NULL)
 			{
 				for (int i = 0; i < tunersNum; i++)
 				{
-					_snprintf(auxString, 1024 - 2, TUNERX_FILTER, i);
+					_snprintf(auxString, sizeof(auxString) - 2, TUNERX_FILTER, i);
 
 					if (!strcmp(value, auxString))
 					{
@@ -529,24 +542,49 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 					next = hdhomerun_pkt_read_tlv(rx_pkt, &tag, &len);
 					if (next)
 					{
-//						strncpy((*infoMsg)->setValue, (char *)rx_pkt->pos, MAX_SIZE_FILTER);
+						int lon = strlen((char *)rx_pkt->pos) + 1; //+'\0'
+
+/*
+						if (!trz->IsPrintable((char *)rx_pkt->pos))
+						{
+							if (lon * 5 + 1 > MAX_SIZE_FILTER) {
+								if (trz) trz->WriteTrace("CONTROL    :: realloc in HDHRlibFacade::ObtainTypeMessage()\n", LEVEL_TRZ_1);
+								(*infoMsg)->setValue = (char*)realloc((char*)(*infoMsg)->setValue, (lon * 5 + 1) * sizeof(char *));
+							}
+							//(*infoMsg)->setValue = trz->ConvertToHex((char *)rx_pkt->pos);
+							strcpy((*infoMsg)->setValue, (char *)rx_pkt->pos);
+
+							// toHex = 1;
+						}
+						else
+						{
+							if (lon + 1 > MAX_SIZE_FILTER) {
+							if (trz) trz->WriteTrace("CONTROL    :: realloc in HDHRlibFacade::ObtainTypeMessage()\n", LEVEL_TRZ_1);
+								(*infoMsg)->setValue = (char*)realloc((char*)(*infoMsg)->setValue, (lon + 1) * sizeof(char *));
+							}
+							strcpy((*infoMsg)->setValue, (char *)rx_pkt->pos);
+						}
+*/
 						if (strlen((char *)rx_pkt->pos) <= 1)
 						{
-							strcpy((*infoMsg)->setValue, (char *)"0x0000-0x1FFF");
-							if (trz && trz->IsLevelWriteable(LEVEL_TRZ_3)) trz->WriteTrace("CONTROL    :: PROBLEM in HDHRlibFacade::ObtainTypeMessage() \n", LEVEL_TRZ_3);
+							//strcpy((*infoMsg)->setValue, (char *)"0x0000-0x1FFF\0");
+							strcpy((*infoMsg)->setValue, (char *)"bypass\0");
+							if (trz) trz->WriteTrace("CONTROL    :: UNKNOWN [set filter] in HDHRlibFacade::ObtainTypeMessage() (bypass) \n", LEVEL_TRZ_3);
 						}
 						else
 						{
 							if (trz->IsPrintable((char *)rx_pkt->pos))
 							{
-								strncpy((*infoMsg)->setValue, (char *)rx_pkt->pos, MAX_SIZE_FILTER);
+								strcpy((*infoMsg)->setValue, (char *)rx_pkt->pos);
 							}
 							else
 							{
-								strcpy((*infoMsg)->setValue, (char *)"0x0000-0x1FFF");
-								if (trz && trz->IsLevelWriteable(LEVEL_TRZ_3)) trz->WriteTrace("CONTROL    :: Received [set filter] wrong format in HDHRlibFacade::ObtainTypeMessage() \n", LEVEL_TRZ_3);
+								//strcpy((*infoMsg)->setValue, (char *)"0x0000-0x1FFF\0");
+								strcpy((*infoMsg)->setValue, (char *)"bypass\0");
+								if (trz) trz->WriteTrace("CONTROL    :: FORMAT ERR [set filter] in HDHRlibFacade::ObtainTypeMessage() (bypass) \n", LEVEL_TRZ_3);
 							}
 						}
+
 						//It is necessary in case of in the message indicating the tag HDHOMERUN_TAG_GETSET_LOCKKEY, to get it 
 						hdhomerun_pkt_read_u32(rx_pkt);
 						hdhomerun_pkt_read_u32(rx_pkt);
@@ -563,7 +601,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 			{
 				for (int i = 0; i < tunersNum; i++)
 				{
-					_snprintf(auxString, 1024 - 2, TUNERX_LOCKKEY, i);
+					_snprintf(auxString, sizeof(auxString) - 2, TUNERX_LOCKKEY, i);
 
 					if (!strcmp(value, auxString))
 					{
@@ -596,7 +634,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 			{
 				for (int i = 0; i < tunersNum; i++)
 				{
-					_snprintf(auxString, 1024 - 2, TUNERX_DEBUG, i);
+					_snprintf(auxString, sizeof(auxString) - 2, TUNERX_DEBUG, i);
 
 					if (!strcmp(value, auxString))
 					{
@@ -613,7 +651,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 			{
 				for (int i = 0; i < tunersNum; i++)
 				{
-					_snprintf(auxString, 1024 - 2, TUNERX_CHANNEL, i);
+					_snprintf(auxString, sizeof(auxString) - 2, TUNERX_CHANNEL, i);
 					
 					if (!strcmp(value, auxString))
 					{
@@ -678,7 +716,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 
 			if (trz->IsLevelWriteable(LEVEL_TRZ_4))
 			{
-				_snprintf(log_output, 1024 - 2, "CONTROL    :: -->    Received HDHR message [%s:%d] {%06d} : Firmware Upgrade [Message sequence %u]\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->seqUpgrade);
+				_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: -->    Received HDHR message [%s:%d] {%06d} : Firmware Upgrade [Message sequence %u]\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->seqUpgrade);
 				trz->WriteTrace(log_output, LEVEL_TRZ_4);
 			}
 
@@ -689,7 +727,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 			(*infoMsg)->upgradeMsg = 0;
 			if (trz->IsLevelWriteable(LEVEL_TRZ_4))
 			{
-				_snprintf(log_output, 1024 - 2, "CONTROL    :: -->    Received HDHR message [%s:%d] {%06d} : Firmware Upgrade [Last Message; Upgrade finished; Message sequence %u (0xFFFFFFFF)]\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->seqUpgrade);
+				_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: -->    Received HDHR message [%s:%d] {%06d} : Firmware Upgrade [Last Message; Upgrade finished; Message sequence %u (0xFFFFFFFF)]\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->seqUpgrade);
 				trz->WriteTrace(log_output, LEVEL_TRZ_4);
 			}
 			trz->WriteTrace("CONTROL    :: Received last message of FIRMWARE UPGRADE\n", LEVEL_TRZ_2);
@@ -709,7 +747,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 
 			if (trz->IsLevelWriteable(LEVEL_TRZ_5))
 			{
-				_snprintf(log_output, 1024 - 2, "CONTROL    :: -->    Received HDHR message [%s:%d] {%06d} : UPGRADING Firmware  [Message sequence %u]\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->seqUpgrade);
+				_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: -->    Received HDHR message [%s:%d] {%06d} : UPGRADING Firmware  [Message sequence %u]\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->seqUpgrade);
 				trz->WriteTrace(log_output, LEVEL_TRZ_5);
 			}
 			tipo_msg = HDHR_UPGRADE_FILE_MSG;
@@ -717,16 +755,15 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 		break;
 	}
 
-	if (log_output)
-		delete[]log_output;
-	
 	if (trz && trz->getTraceLevel() != NO_TRACE && tipo_msg != HDHR_UPGRADE_MSG && tipo_msg != HDHR_UPGRADE_FILE_MSG && (*infoMsg)->upgradeMsg != 1)
 	{
 		char tip[4];
-		char *trace = new char[100 + strlen((*infoMsg)->setValue) + strlen((*infoMsg)->RequestMsg)];
-		memset(trace, 0, 100 + strlen((*infoMsg)->setValue) + strlen((*infoMsg)->RequestMsg));
+		int trace_length = 200 + strlen((*infoMsg)->setValue) + strlen((*infoMsg)->RequestMsg);
+		char *trace = new char[trace_length];
+		memset(trace, 0, trace_length);
 
-		strcpy(m_sRemoteIPControl, TreatIP(m_sRemoteIPControl));
+		//strcpy(m_sRemoteIPControl, TreatIP(m_sRemoteIPControl));
+		TreatIP(m_sRemoteIPControl, m_sRemoteIPControl);
 		
 		if (tipo_msg != ERROR_MSG)
 		{
@@ -744,12 +781,12 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 		{
 			if (trz->IsLevelWriteable(LEVEL_TRZ_2))
 			{
-				_snprintf(trace, 100 + strlen((*infoMsg)->setValue) + strlen((*infoMsg)->RequestMsg) - 2, "CONTROL    :: UNKNOWN HDHR MESSAGE         [%s:%d] : %s\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->RequestMsg);
+				_snprintf(trace, trace_length - 2, "CONTROL    :: UNKNOWN HDHR MESSAGE         [%s:%d] : %s\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->RequestMsg);
 				trz->WriteTrace(trace, LEVEL_TRZ_2);
 			}
 			if (trz->IsLevelWriteable(LEVEL_TRZ_4))
 			{
-				_snprintf(trace, 100 + strlen((*infoMsg)->setValue) + strlen((*infoMsg)->RequestMsg) - 2, "CONTROL    :: -->    RECEIVED UNKNOWN HDHR MESSAGE [%s:%d] {%06d} : %s\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->RequestMsg);
+				_snprintf(trace, trace_length - 2, "CONTROL    :: -->    RECEIVED UNKNOWN HDHR MESSAGE [%s:%d] {%06d} : %s\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->RequestMsg);
 				trz->WriteTrace(trace, LEVEL_TRZ_4);
 			}
 		}
@@ -763,26 +800,26 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 
 						if (trz->IsLevelWriteable(LEVEL_TRZ_4))
 						{
-							_snprintf(trace, 100 + strlen((*infoMsg)->setValue) + strlen((*infoMsg)->RequestMsg) - 2, "CONTROL    :: -->    Received HDHR message [%s:%d] {%06d} : %s %s\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, tip, (*infoMsg)->RequestMsg);
+							_snprintf(trace, trace_length - 2, "CONTROL    :: -->    Received HDHR message [%s:%d] {%06d} : %s %s\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, tip, (*infoMsg)->RequestMsg);
 							trz->WriteTrace(trace, LEVEL_TRZ_4);
 						}
 						if (toHex)
 						{
 							if (trz->IsLevelWriteable(LEVEL_TRZ_2))
 							{
-								_snprintf(trace, 100 + strlen((*infoMsg)->setValue) + strlen((*infoMsg)->RequestMsg) - 2, "CONTROL    :: Content of filter message is not printable. It has been converted to Hexadecimal (%s)\n", (*infoMsg)->setValue);
+								_snprintf(trace, trace_length - 2, "CONTROL    :: Content of filter message is not printable. It has been converted to Hexadecimal (%s)\n", (*infoMsg)->setValue);
 								trz->WriteTrace(trace, LEVEL_TRZ_2);
 							}
 						}
 
 						//For the messages with a response in more than 1 lines the content begins at new line
-						if (trz->IsLevelWriteable(LEVEL_TRZ_5))
+						if (trz->IsLevelWriteable(LEVEL_TRZ_6))
 						{
 							if (tipo_msg == FEATURES_MSG || tipo_msg == TUNERX_STREAMINFO_MSG)
-								_snprintf(trace, 100 + strlen((*infoMsg)->setValue) + strlen((*infoMsg)->RequestMsg) - 2, "CONTROL    ::     \\- CONTENT HDHR message  [%s:%d] {%06d} :\n[%s]\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->setValue);
+								_snprintf(trace, trace_length - 2, "CONTROL    ::     \\- CONTENT HDHR message  [%s:%d] {%06d} :\n[%s]\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->setValue);
 							else
-								_snprintf(trace, 100 + strlen((*infoMsg)->setValue) + strlen((*infoMsg)->RequestMsg) - 2, "CONTROL    ::     \\- CONTENT HDHR message  [%s:%d] {%06d} : [%s]\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->setValue);
-							trz->WriteTrace(trace, LEVEL_TRZ_5);
+								_snprintf(trace, trace_length - 2, "CONTROL    ::     \\- CONTENT HDHR message  [%s:%d] {%06d} : [%s]\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, (*infoMsg)->setValue);
+							trz->WriteTrace(trace, LEVEL_TRZ_6);
 						}
 					}
 					else
@@ -790,7 +827,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 						strcpy(tip, "get");
 						if (trz->IsLevelWriteable(LEVEL_TRZ_4))
 						{
-							_snprintf(trace, 100 + strlen((*infoMsg)->setValue) + strlen((*infoMsg)->RequestMsg) - 2, "CONTROL    :: -->    Received HDHR message [%s:%d] {%06d} : %s %s\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, tip, (*infoMsg)->RequestMsg);
+							_snprintf(trace, trace_length - 2, "CONTROL    :: -->    Received HDHR message [%s:%d] {%06d} : %s %s\n", m_sRemoteIPControl, m_remotePortControl, (*infoMsg)->numMsg, tip, (*infoMsg)->RequestMsg);
 							trz->WriteTrace(trace, LEVEL_TRZ_4);
 						}
 					}
@@ -808,6 +845,7 @@ int HDHRlibFacade::ObtainTypeMessage(struct hdhomerun_pkt_t *rx_pkt, CTrace *trz
 	
 	return tipo_msg;
 }
+
 
 int HDHRlibFacade::SendResponseControl(InfoMessageHDHR* infoMsg, CTuner* infTuner, SOCKET socket, CTrace *trz)
 {
@@ -834,9 +872,8 @@ int HDHRlibFacade::SendResponseControl(InfoMessageHDHR* infoMsg, CTuner* infTune
 			char* tipmsg = new char[strlen((char *)msg->pos)+1];
 			strcpy(tipmsg, (char *)msg->pos);
 
-			char *log_output = (char*)malloc(1024);
-			memset(log_output, 0, 1024);
-			strcpy(log_output, "");
+			char log_output[4096];
+			memset(log_output, 0, 4096);
 			
 			if (infoMsg->tipoMsg != HDHR_UPGRADE_MSG && infoMsg->tipoMsg != HDHR_UPGRADE_FILE_MSG)
 			{
@@ -856,7 +893,7 @@ int HDHRlibFacade::SendResponseControl(InfoMessageHDHR* infoMsg, CTuner* infTune
 			{
 				if (trz->IsLevelWriteable(LEVEL_TRZ_4))
 				{
-					_snprintf(log_output, 1024 - 2, "CONTROL    ::    <-- SEND UNKNOWN HDHR MESSAGE     [%s:%d] {%06ld} : %s\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg, tipmsg);
+					_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    ::    <-- SEND UNKNOWN HDHR MESSAGE     [%s:%d] {%06ld} : %s\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg, tipmsg);
 					trz->WriteTrace(log_output, LEVEL_TRZ_4);
 				}
 			}
@@ -865,9 +902,9 @@ int HDHRlibFacade::SendResponseControl(InfoMessageHDHR* infoMsg, CTuner* infTune
 				if (trz->IsLevelWriteable(LEVEL_TRZ_4))
 				{
 					if (infoMsg->seqUpgrade == 4294967295)
-						_snprintf(log_output, 1024 - 2, "CONTROL    ::    <-- Send HDHR message     [%s:%d] {%06ld} : Response. Firmware Upgrade finished\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg);
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    ::    <-- Send HDHR message     [%s:%d] {%06ld} : Response. Firmware Upgrade finished\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg);
 					else
-						_snprintf(log_output, 1024 - 2, "CONTROL    ::    <-- Send HDHR message     [%s:%d] {%06ld} : Response. Firmware Upgrade initiated\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg);
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    ::    <-- Send HDHR message     [%s:%d] {%06ld} : Response. Firmware Upgrade initiated\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg);
 
 					trz->WriteTrace(log_output, LEVEL_TRZ_4);
 				}
@@ -876,7 +913,7 @@ int HDHRlibFacade::SendResponseControl(InfoMessageHDHR* infoMsg, CTuner* infTune
 			{
 				if (trz->IsLevelWriteable(LEVEL_TRZ_4))
 				{
-					_snprintf(log_output, 1024 - 2, "CONTROL    ::    <-- Send HDHR message     [%s:%d] {%06ld} : Response. Firmware Upgrade File.\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg);
+					_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    ::    <-- Send HDHR message     [%s:%d] {%06ld} : Response. Firmware Upgrade File.\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg);
 					trz->WriteTrace(log_output, LEVEL_TRZ_4);
 				}
 			}
@@ -884,7 +921,7 @@ int HDHRlibFacade::SendResponseControl(InfoMessageHDHR* infoMsg, CTuner* infTune
 			{
 				if (trz->IsLevelWriteable(LEVEL_TRZ_4))
 				{
-					_snprintf(log_output, 1024 - 2, "CONTROL    ::    <-- Send HDHR message     [%s:%d] {%06ld} : %s\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg, tipmsg);
+					_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    ::    <-- Send HDHR message     [%s:%d] {%06ld} : %s\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg, tipmsg);
 					trz->WriteTrace(log_output, LEVEL_TRZ_4);
 				}
 			}
@@ -894,6 +931,17 @@ int HDHRlibFacade::SendResponseControl(InfoMessageHDHR* infoMsg, CTuner* infTune
 			uint8_t *next = hdhomerun_pkt_read_tlv(msg, &tag, &len);
 			msg->pos = next;
 
+/*			if (msg->pos)
+			{
+				int tam = strlen((char*)msg->pos);
+				if (600 < tam+100)
+				{
+					if (trz) trz->WriteTrace("CONTROL    :: realloc in HDHRlibFacade::SendResponseControl()\n", LEVEL_TRZ_1);
+					log_output = (char*)realloc(log_output, (strlen((char *)msg->pos) + 100) * sizeof(char *));
+				}
+			}
+*/
+
 			if (infoMsg->tipoMsg != HDHR_UPGRADE_MSG && infoMsg->tipoMsg != HDHR_UPGRADE_FILE_MSG)
 			{
 				for (int i = 0; i < 2; i++)
@@ -902,27 +950,26 @@ int HDHRlibFacade::SendResponseControl(InfoMessageHDHR* infoMsg, CTuner* infTune
 					msg->pos[2] = '.';
 			}
 	
-			if (trz->IsLevelWriteable(LEVEL_TRZ_5))
+			if (trz->IsLevelWriteable(LEVEL_TRZ_6))
 			{
 				if (infoMsg->tipoMsg == ERROR_MSG)
-					_snprintf(log_output, 1024 - 2, "CONTROL    ::     \\- CONTENT HDHR MESSAGE          [%s:%d] {%06ld} : [%s]\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg, (char *)msg->pos);
+					_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    ::     \\- CONTENT HDHR MESSAGE          [%s:%d] {%06ld} : [%s]\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg, (char *)msg->pos);
 				else if (infoMsg->tipoMsg != HDHR_UPGRADE_MSG && infoMsg->tipoMsg != HDHR_UPGRADE_FILE_MSG)
 				{
 					if (infoMsg->tipoMsg == FEATURES_MSG || infoMsg->tipoMsg == TUNERX_STREAMINFO_MSG)
-						_snprintf(log_output, 1024 - 2, "CONTROL    ::     \\- CONTENT HDHR message  [%s:%d] {%06ld} :\n[%s]\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg, (char *)msg->pos);
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    ::     \\- CONTENT HDHR message  [%s:%d] {%06ld} :\n[%s]\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg, (char *)msg->pos);
 					else
-						_snprintf(log_output, 1024 - 2, "CONTROL    ::     \\- CONTENT HDHR message  [%s:%d] {%06ld} : [%s]\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg, (char *)msg->pos);
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    ::     \\- CONTENT HDHR message  [%s:%d] {%06ld} : [%s]\n", m_sRemoteIPControl, m_remotePortControl, infoMsg->numMsg, (char *)msg->pos);
 				}
 
 				if (infoMsg->tipoMsg != HDHR_UPGRADE_MSG && infoMsg->tipoMsg != HDHR_UPGRADE_FILE_MSG)
-					trz->WriteTrace(log_output, LEVEL_TRZ_5);
+					trz->WriteTrace(log_output, LEVEL_TRZ_6);
 			}
 
 			if (tipmsg)
 				delete []tipmsg;
 
-			delete[]log_output;
-//			delete []valmsg;  -- It will be removed when the message was removed
+//			delete []valmsg;  // Will be deleted when remove msg
 		}
 	}
 
@@ -937,6 +984,7 @@ int HDHRlibFacade::CreateMessageResponseHDHR(InfoMessageHDHR* infoReqMsg, struct
 	int res = 0;
 	char *name, *value;
 	int name_len, value_len;
+	int len = 0;
 	
 	name = (char*)malloc(500);
 	value = (char*)malloc(1024);
@@ -948,7 +996,13 @@ int HDHRlibFacade::CreateMessageResponseHDHR(InfoMessageHDHR* infoReqMsg, struct
 	switch (infoReqMsg->tipoMsg)
 	{
 	case ERROR_MSG:
-		strncpy(name, infoReqMsg->unknownMsg, 500-2);
+		len = strlen(infoReqMsg->unknownMsg)+1;
+		if (len > 100)
+		{
+			if (trz) trz->WriteTrace("CONTROL    :: realloc in HDHRlibFacade::CreateMessageResponseHDHR()\n", LEVEL_TRZ_1);
+			name = (char*)realloc(name, (len+1) * sizeof(char *));
+		}
+		strncpy(name, infoReqMsg->unknownMsg, len);
 		name_len = (int)strlen(name) + 1;
 		strncpy(value, ERROR_VALUE, 1024 - 2);
 		value_len = (int)strlen(value) + 1;
@@ -966,7 +1020,9 @@ int HDHRlibFacade::CreateMessageResponseHDHR(InfoMessageHDHR* infoReqMsg, struct
 	case ERROR_LOCKKEY_MSG:
 		strncpy(name, infoReqMsg->unknownMsg, 500 - 2);
 		name_len = (int)strlen(name) + 1;
-		_snprintf(value, 1024 - 2, "ERROR: resource locked by %s", m_sRemoteIPControl);
+
+		//_snprintf(value, 1024 - 2, "ERROR: resource locked by %s", m_sRemoteIPControl);
+		_snprintf(value, 1024 - 2, "ERROR: resource locked by %s", infTuner[infoReqMsg->numTuner].IPLockkey);
 		value_len = (int)strlen(value) + 1;
 
 		hdhomerun_pkt_write_u8(*msg, HDHOMERUN_TAG_GETSET_NAME);
@@ -1030,7 +1086,12 @@ int HDHRlibFacade::CreateMessageResponseHDHR(InfoMessageHDHR* infoReqMsg, struct
 	case TUNERX_STATUS_MSG:
 		_snprintf(name, 500 - 2, TUNERX_STATUS, infoReqMsg->numTuner);
 		name_len = (int)strlen(name) + 1;
-		_snprintf(value, 1024 - 2, TUNERX_STATUS_VALUE, infTuner[infoReqMsg->numTuner].canal, infTuner[infoReqMsg->numTuner].lock, infTuner[infoReqMsg->numTuner].ss, infTuner[infoReqMsg->numTuner].snq, infTuner[infoReqMsg->numTuner].seq, infTuner[infoReqMsg->numTuner].bps, infTuner[infoReqMsg->numTuner].pps);
+		//_snprintf(value, 1024 - 2, TUNERX_STATUS_VALUE, infTuner[infoReqMsg->numTuner].canal, infTuner[infoReqMsg->numTuner].lock, infTuner[infoReqMsg->numTuner].ss, infTuner[infoReqMsg->numTuner].snq, infTuner[infoReqMsg->numTuner].seq, infTuner[infoReqMsg->numTuner].bps, infTuner[infoReqMsg->numTuner].pps);
+		// FIXME: Fake "lock" value at time!
+		if (infTuner[infoReqMsg->numTuner].snq > 0)
+			_snprintf(value, 1024 - 2, TUNERX_STATUS_VALUE, infTuner[infoReqMsg->numTuner].canal, "qam64", infTuner[infoReqMsg->numTuner].ss, infTuner[infoReqMsg->numTuner].snq, infTuner[infoReqMsg->numTuner].seq, infTuner[infoReqMsg->numTuner].bps, infTuner[infoReqMsg->numTuner].pps);
+		else
+			_snprintf(value, 1024 - 2, TUNERX_STATUS_VALUE, infTuner[infoReqMsg->numTuner].canal, "none", infTuner[infoReqMsg->numTuner].ss, infTuner[infoReqMsg->numTuner].snq, infTuner[infoReqMsg->numTuner].seq, infTuner[infoReqMsg->numTuner].bps, infTuner[infoReqMsg->numTuner].pps);
 		value_len = (int)strlen(value) + 1;
 
 		hdhomerun_pkt_write_u8(*msg, HDHOMERUN_TAG_GETSET_NAME);
@@ -1105,7 +1166,7 @@ int HDHRlibFacade::CreateMessageResponseHDHR(InfoMessageHDHR* infoReqMsg, struct
 	case TUNERX_PROGRAM_MSG:
 		_snprintf(name, 500 - 2, TUNERX_PROGRAM, infoReqMsg->numTuner);
 		name_len = (int)strlen(name) + 1;
-		_snprintf(value, 600 - 2, TUNERX_PROGRAM_VALUE, infTuner[infoReqMsg->numTuner].program);
+		_snprintf(value, 1024 - 2, TUNERX_PROGRAM_VALUE, infTuner[infoReqMsg->numTuner].program);
 		value_len = (int)strlen(value) + 1;
 
 		hdhomerun_pkt_write_u8(*msg, HDHOMERUN_TAG_GETSET_NAME);
@@ -1231,6 +1292,12 @@ int HDHRlibFacade::CreateMessageResponseHDHR(InfoMessageHDHR* infoReqMsg, struct
 		res = 1;
 		break;
 	case TUNERX_FILTER_MSG:
+		len = strlen(infTuner[infoReqMsg->numTuner].filter)+1;
+		if (len > 600)
+		{
+			if (trz) trz->WriteTrace("CONTROL    :: realloc in HDHRlibFacade::CreateMessageResponseHDHR()\n", LEVEL_TRZ_1);
+			value = (char*)realloc(value, len * sizeof(char *));
+		}
 		_snprintf(name, 500 - 2, TUNERX_FILTER, infoReqMsg->numTuner);
 		name_len = (int)strlen(name) + 1;
 		strncpy(value, infTuner[infoReqMsg->numTuner].filter, 1024 - 2);

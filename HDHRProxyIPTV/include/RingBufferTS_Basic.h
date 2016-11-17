@@ -33,6 +33,7 @@
 #include <cstdint>
 #include<time.h>
 
+
 /*Define to add padding value 'ÿ'(ascii)/0xff(hexadecimal) at data obtained from buffer if the number of packets is lower than 7 */
 #define AddPaddingToTSPacket
 
@@ -75,15 +76,6 @@ public:
 	int getTuner() { return m_tuner; }
 	void setTuner(int tun) { m_tuner = tun; }
 
-	int m_filteredPacketsSent;
-	int m_filteredOutPacketsDescarted;
-	int m_nullPacketsSent;
-	int m_receivedPackets;
-	_int64 m_timetoCheckAnalysis;
-	SYSTEMTIME m_timeLastAnalysis;
-	void setimeLastAnalysis() { GetLocalTime(&m_timeLastAnalysis); };
-	int CheckTimeToAnalyzeData();
-
 	HANDLE semaphoreTreatingPIDs;
 	void SemaphoreWait();
 	void SemaphoreSignal();
@@ -93,21 +85,22 @@ public:
 
 	int GetBusySpaceBuf() { return m_BusySpace; }
 	int GetFreeSpaceBuf() { return m_freeSpace; }
+	int GetUsedSpace() { return ((m_BusySpace * 100)/ 78960); }  // Size (78960) * 100;
 
 	void Initialize(CString pidsToFilterList);
 	int Insert(char* data, int size);
 	int GetTSPacket(char* data);  // Return next valid 188 bytes packet
 	int GetData(char* data, int size); // Return "size" bytes of buffer
 	int GetMultipleTSPacket(char* data, int numMaxPackets); // Return 1-numMaxPackets valid 188 bytes packets
-	int CheckValidTSPacket();  /* return 1 if one valid 188bytes packet is found inside the buffer */ /* Implies resync and delete invalid data */
-	void TreatingHTTPMessage(char* data, int size);
 	void GenerateNullPaddingTSPackets(char* data, int numPackets);
 	int PIDFiltering(char* data);
+	void InitHTTPMessage();
 
 	void setPidsToFilterList(CString pids) { m_pidsToFilterList = pids; }
 	void setApplyPidFiltering(int pfilt) { m_applyPidFiltering = pfilt; }
 
 	void UpdatePIFFilteringData(CString pidsToFilterList, int internalPFiltering);
+	void SaveTimeToSend();
 	int CheckTimeToSend();
 	_int64 CompareSystemTime(SYSTEMTIME st1, SYSTEMTIME st2);
 	void SubstractTimeToPacket();
@@ -119,6 +112,16 @@ public:
 	inline void DisablePID(unsigned short pid);
 	inline int IsPIDEnabled(unsigned short pid);
 	inline unsigned short ObtainPID(const unsigned char * tspacket);
+
+	int m_filteredPacketsSent;
+	int m_filteredOutPacketsDescarted;
+	int m_nullPacketsSent;
+	int m_receivedPackets;
+	int m_lockaheads;
+	_int64 m_timetoCheckAnalysis;
+	SYSTEMTIME m_timeLastAnalysis;
+	void setimeLastAnalysis() { GetLocalTime(&m_timeLastAnalysis); };
+	int CheckTimeToAnalyzeData();
 };
 
 

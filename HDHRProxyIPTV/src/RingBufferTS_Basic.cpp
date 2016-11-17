@@ -29,10 +29,10 @@ CRingBufferTS_Basic::CRingBufferTS_Basic()
 {
 	m_cfgProxy = CConfigProxy::GetInstance();
 
-	strcpy(m_buffer, "");
+	memset(m_buffer, 0, sizeof(m_buffer));
 	m_posWrite = 0;
 	m_posRead = 0;
-	m_bufferSize = 78960;
+	m_bufferSize = sizeof(m_buffer); //78960;
 	m_freeSpace = m_bufferSize;
 	m_BusySpace = 0;
 	m_pidsToFilterList.Format(L"");
@@ -41,7 +41,7 @@ CRingBufferTS_Basic::CRingBufferTS_Basic()
 	m_BusySpaceCopy = 0;
 	m_posReadCopy = 0;
 
-	strcpy(m_buffer_output, "");
+	memset(m_buffer_output, 0, sizeof(m_buffer_output));
 	m_numTSPacketsOutput = 0;
 
 	m_Traces = new CTrace();
@@ -59,6 +59,7 @@ CRingBufferTS_Basic::CRingBufferTS_Basic()
 	m_filteredOutPacketsDescarted = 0;
 	m_nullPacketsSent = 0;
 	m_receivedPackets = 0;
+	m_lockaheads = 0;
 	m_timetoCheckAnalysis = 3000000000; //In nanoseconds = 3 seconds
 	GetLocalTime(&m_timeLastAnalysis);
 }
@@ -85,8 +86,8 @@ void CRingBufferTS_Basic::Initialize(CString pidsToFilterList)
 
 int CRingBufferTS_Basic::Insert(char* data, int size)
 {
-	char log_output[1024];
-	memset(log_output, 0, 1024);
+	if ( size  < 0 ) return 0;
+	if ( size == 0 ) return 1;
 
 	if (size > m_freeSpace)
 	{
@@ -117,7 +118,9 @@ int CRingBufferTS_Basic::Insert(char* data, int size)
 
 	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_6))
 	{
-		_snprintf(log_output, 1024 - 2, "TRANSPORT  :: Saved at buffer:          %d bytes.\n", size);
+		char log_output[1024];
+		memset(log_output, 0, 1024);
+		_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Saved in Ring Buffer:     %d bytes.\n", m_tuner,size);
 		m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
 	}
 
@@ -127,13 +130,14 @@ int CRingBufferTS_Basic::Insert(char* data, int size)
 int CRingBufferTS_Basic::GetTSPacket(char* data)
 {
 	int size = 188;  //Size of a Tranport Stream packet: 188 bytes
-	char log_output[1024];
-	memset(log_output, 0, 1024);
 
-	if (m_BusySpace > size)
+	//if (m_BusySpace > size)
+	if (m_BusySpace >= size)
 	{
 		//Initial data on buffer is sync, it can obtain a correct packet 188 bytes
-		if (m_buffer[m_posRead] == 'G' && m_buffer[m_posRead + 188] == 'G')
+		//if (m_buffer[m_posRead] == 'G' && m_buffer[m_posRead + 188] == 'G')
+		// Only one packet output, then only check if this one is a TS packet!
+		if (m_buffer[m_posRead] == 'G')
 		{
 			GetData(data, size);
 		}
@@ -141,20 +145,14 @@ int CRingBufferTS_Basic::GetTSPacket(char* data)
 		{
 			if (m_Traces->IsLevelWriteable(LEVEL_TRZ_3))
 			{
-				_snprintf(log_output, 1024 - 2, "TRANSPORT  :: HAVE TO Resynchronize. Read Position at buffer: %d; Length of dates at buffer: %d\n", m_posRead, m_BusySpace);
+				char log_output[1024];
+				memset(log_output, 0, 1024);
+				_snprintf(log_output, sizeof(log_output) - 2, "ERROR      :: RING BUFFER DETECTED NO SYNC. Discard packet position at buffer: %d; Length of data at buffer: %d\n", m_posRead, m_BusySpace);
 				m_Traces->WriteTrace(log_output, LEVEL_TRZ_3);
 			}
-
-			if (CheckValidTSPacket())
-			{
-				GetData(data, size);
-				m_Traces->WriteTrace("TRANSPORT  :: Resynchronization OK of TS packets at buffer.\n", LEVEL_TRZ_2);
-			}
-			else
-			{
-				m_Traces->WriteTrace("TRANSPORT  :: Resynchronization of TS packets at buffer. NOT find sync sequence\n", LEVEL_TRZ_2);
-				return 0;
-			}
+			char discard[188];
+			GetData(discard, size);
+			return 0;
 		}
 	}
 	else
@@ -165,7 +163,7 @@ int CRingBufferTS_Basic::GetTSPacket(char* data)
 
 int CRingBufferTS_Basic::GetData(char* data, int size)
 {
-	if (m_BusySpace > size)
+	if (m_BusySpace >= size)
 	{
 		memcpy(data, &m_buffer[m_posRead], size);
 		m_posRead += size;
@@ -181,267 +179,116 @@ int CRingBufferTS_Basic::GetData(char* data, int size)
 	return size;
 }
 
-int CRingBufferTS_Basic::CheckValidTSPacket()
-{
-	int pos = 0;
-	char* findIniTS;
-	char* eraseData = new char[m_BusySpace];
-	strcpy(eraseData, "");
-	int findSync = 0;
-	int finishCheck = 0;
-	char log_output[1024];
-	memset(log_output, 0, 1024);
-
-	while (!findSync && !finishCheck)
-	{
-		//G = 0x47 --> Initiation of packet of Tranports Stream
-		findIniTS = strchr(&m_buffer[m_posRead], 'G');
-		
-		if (findIniTS == NULL)
-		{
-			m_Traces->WriteTrace("TRANSPORT  :: [Buffer] CheckValidTSPacket : Valid packet not found at buffer\n", LEVEL_TRZ_6);
-			if (m_Traces->IsLevelWriteable(LEVEL_TRZ_3))
-			{
-				_snprintf(log_output, 1024 - 2, "TRANSPORT  :: Resynchronization: All bytes (%d) discarded\n", m_BusySpace);
-				m_Traces->WriteTrace(log_output, LEVEL_TRZ_3);
-			}
-			GetData(eraseData, m_BusySpace);
-			finishCheck = 1;
-		}
-		else
-		{
-			pos = findIniTS - &m_buffer[m_posRead];
-			if (pos != 0)
-			{
-				if (m_Traces->IsLevelWriteable(LEVEL_TRZ_3))
-				{
-					_snprintf(log_output, 1024 - 2, "TRANSPORT  :: Resynchronization: %d bytes discarded\n", pos);
-					m_Traces->WriteTrace(log_output, LEVEL_TRZ_3);
-				}
-				GetData(eraseData, pos);
-			}
-
-			if (m_buffer[m_posRead] == 'G' && m_buffer[m_posRead + 188] == 'G')
-			{
-				findSync = 1;
-			}
-		}
-	}
-
-	if (eraseData)
-		delete[]eraseData;
-
-	return findSync;
-}
-
 int CRingBufferTS_Basic::GetMultipleTSPacket(char* data, int numMaxPackets)
 {
-	int numTSPackets = 0;
 	char packet[1316];
-	strcpy(packet, "");
+	int numTSPackets = 0;
 	char log_output[1024];
 	memset(log_output, 0, 1024);
-	int findNumPacketToSend = 0;
-	int endNotFound = 0;
-	int numPacksToEliminate = 0;
-	int i = 0;
+	int pass_all_pids = 0;
 
-	m_Traces->WriteTrace("TRANSPORT  :: **** START TREATMENT OF GETTING Packets of buffer to send ****\n", LEVEL_TRZ_6);
+	//m_Traces->WriteTrace("TRANSPORT  :: **** START TREATMENT OF GETTING Packets of buffer to send ****\n", LEVEL_TRZ_6);
 
-	//Not necessary apply internal PID Filtering
+	if (numMaxPackets <= 0) return 0;
+
 	if (!m_applyPidFiltering || !m_pidsToFilterList.Compare(L""))
 	{
-		for (i = 0; i < NUM_PACKETS_TO_SEND; i++)
-		{
-			if (GetTSPacket(packet))
-			{
-				//Not apply PID Filtering. It sends all packets
-				memcpy(&data[i * 188], packet, 188);
-				numTSPackets++;
-
-			}
-			else
-				i = NUM_PACKETS_TO_SEND;
-		}
-		
-		m_filteredPacketsSent += numTSPackets;
-
-		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_6))
-		{
-			_snprintf(log_output, 1024 - 2, "TRANSPORT  :: Read from buffer to send: %d bytes. %d packets. More Info Buffer: Read Position[%d]; Write Position[%d]\n",
-				numTSPackets * 188, numTSPackets, m_posRead, m_posWrite);
-			m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
-		}
+		//Not necessary apply internal PID Filtering
+		pass_all_pids = 1;
 	}
 	else
 	{
-		while (!findNumPacketToSend && !endNotFound)
+		// For internal pid filtering check if time to send packets
+		if ((GetBusySpaceBuf() < MAX_SIZE_DATAGRAM_TO_SEND * 50) && (!CheckTimeToSend()))
+			return 0;
+	}
+
+	int i = 0;
+	for (i = 0; i < numMaxPackets; i++)
+	{
+		if (GetTSPacket(packet))
 		{
-			if (GetTSPacket(packet))
+			if (pass_all_pids || PIDFiltering(packet))
 			{
-				if (PIDFiltering(packet))
-				{
-					memcpy(&m_buffer_output[m_numTSPacketsOutput * 188], packet, 188);
-					m_numTSPacketsOutput++;
-
-					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_6))
-					{
-						_snprintf(log_output, 1024 - 2, "TRANSPORT  :: Add TS packet to output buffer. Number of packet: %d\n", m_numTSPacketsOutput);
-						m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
-					}
-
-					//Substract m_maxTimeToPacket to m_maxTimeToSendDgram
-					SubstractTimeToPacket();
-
-					if (m_numTSPacketsOutput == NUM_PACKETS_TO_SEND)
-					{
-						findNumPacketToSend = 1;
-						numTSPackets = m_numTSPacketsOutput;
-						m_numTSPacketsOutput = 0;
-						memcpy(data, m_buffer_output, MAX_SIZE_DATAGRAM_TO_SEND);
-						strcpy(m_buffer_output, "");
-
-						GetLocalTime(&m_timeLastSending);
-
-						m_Traces->WriteTrace("TRANSPORT  :: 7 TS packets (PIDs) at output buffer to send\n", LEVEL_TRZ_6);
-
-						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_6))
-						{
-							_snprintf(log_output, 1024 - 2, "TRANSPORT  :: (PID filtering) Read from buffer to send: %d bytes. %d packets. More Info Buffer: Read Position[%d]; Write Position[%d]\n",
-								numTSPackets * 188, numTSPackets, m_posRead, m_posWrite);
-							m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
-						}
-
-						m_filteredPacketsSent += numTSPackets;
-
-					}
-				}
-				else
-					m_filteredOutPacketsDescarted++;
+				// Pass packet!
+				memcpy(&data[numTSPackets * 188], packet, 188);
+				numTSPackets++;
+				m_filteredPacketsSent++;
 			}
 			else
 			{
-				endNotFound = 1;
+				// Filtered out!
+				m_filteredOutPacketsDescarted++;
+			}
 
-				m_Traces->WriteTrace("There are not more packet with de ordered pids at input buffer. Check max time to send datagram to the client\n", LEVEL_TRZ_6);
-
-				//Comprove if the time to send has passed, and then have to add padding and send
-				if (CheckTimeToSend())
-				{
-					memcpy(data, m_buffer_output, m_numTSPacketsOutput * 188);
-					numTSPackets = m_numTSPacketsOutput;
-					m_numTSPacketsOutput = 0;
-
-					m_filteredPacketsSent += numTSPackets;
-
-					GetLocalTime(&m_timeLastSending);
-
-					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_6))
-					{
-						_snprintf(log_output, 1024 - 2, "TRANSPORT  :: Max time to send datagram. Send data in output buffer (%d TS packets)\n", numTSPackets);
-						m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
-
-						_snprintf(log_output, 1024 - 2, "TRANSPORT  :: (PID filtering; arrive max time to send) Read from buffer to send: %d bytes. %d packets. More Info Buffer: Read Position[%d]; Write Position[%d]\n",
-							numTSPackets * 188, numTSPackets, m_posRead, m_posWrite);
-						m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
-					}
-				}
-				else
-				{
-					m_Traces->WriteTrace("Not arrive to Max time to send datagram. Not send packet yet.\n", LEVEL_TRZ_6);
-					m_Traces->WriteTrace("TRANSPORT  :: **** END TREATMENT OF GETTING Packets of buffer to send ****\n", LEVEL_TRZ_6);
-					return 0;
-				}
+			if ((!pass_all_pids) && (numTSPackets >= NUM_PACKETS_TO_SEND))
+			{
+				// When filtering, STOP when first group of packets is completed
+				break;
+			}
+		}
+		else
+		{
+			if (numTSPackets >= NUM_PACKETS_TO_SEND)
+			{
+				break;
 			}
 		}
 	}
 
+	if ((!pass_all_pids) && (numTSPackets < NUM_PACKETS_TO_SEND))
+		SaveTimeToSend();
+
+	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_6))
+	{
+		_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Read from Ring Buffer to send: %d bytes. %d packets. More Info Buffer: Read Position[%d]; Write Position[%d]; Free Space[%d]\n",
+			m_tuner, numTSPackets * 188, numTSPackets, m_posRead, m_posWrite, m_freeSpace);
+		m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
+	}
 
 #ifdef AddPaddingToTSPacket
-	if (numTSPackets != 0 && numTSPackets < NUM_PACKETS_TO_SEND)
+//	if ((numTSPackets != 0) && (numTSPackets < NUM_PACKETS_TO_SEND))
+	int numDummyPackets = (NUM_PACKETS_TO_SEND - (numTSPackets % NUM_PACKETS_TO_SEND));
+	if ((numTSPackets != 0) && (numDummyPackets < NUM_PACKETS_TO_SEND))
 	{
-		m_nullPacketsSent += (NUM_PACKETS_TO_SEND - numTSPackets);
+		char* nullPaddingPckt = new char[numDummyPackets * 188];
+		memset(nullPaddingPckt, 0, numDummyPackets * 188);
 
-		char* nullPaddingPckt = new char[(NUM_PACKETS_TO_SEND - numTSPackets) * 188];
-		strcpy(nullPaddingPckt, "");
+		GenerateNullPaddingTSPackets(nullPaddingPckt, numDummyPackets);
 
-		GenerateNullPaddingTSPackets(nullPaddingPckt, NUM_PACKETS_TO_SEND - numTSPackets);
+		memcpy(&data[numTSPackets * 188], nullPaddingPckt, numDummyPackets * 188);
 
-		memcpy(&data[numTSPackets * 188], nullPaddingPckt, (NUM_PACKETS_TO_SEND - numTSPackets) * 188);
-
-		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_4))
+		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
 		{
-			_snprintf(log_output, 1024 - 2, "TRANSPORT  :: Adding %d null padding TS Packets to arrive at 7 packets to send.\n",
-				NUM_PACKETS_TO_SEND - numTSPackets);
-			m_Traces->WriteTrace(log_output, LEVEL_TRZ_4);
+			_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Adding %d null padding TS Packets to arrive at 7 packets to send (%d total packets).\n", m_tuner, numDummyPackets, numTSPackets);
+			m_Traces->WriteTrace(log_output, LEVEL_TRZ_5);
 		}
 
 		if (nullPaddingPckt)
 			delete[] nullPaddingPckt;
 
-		numTSPackets = NUM_PACKETS_TO_SEND;
+		numTSPackets += numDummyPackets;
+		m_nullPacketsSent += numDummyPackets;
 	}
 #endif
 
 	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_3))
 		CheckTimeToAnalyzeData();
 
-	m_Traces->WriteTrace("TRANSPORT  :: **** END TREATMENT OF GETTING Packets of buffer to send ****\n", LEVEL_TRZ_6);
+	//m_Traces->WriteTrace("TRANSPORT  :: ****  END  TREATMENT OF GETTING Packets of buffer to send ****\n", LEVEL_TRZ_6);
 
 	return numTSPackets * 188;
 }
 
-void CRingBufferTS_Basic::TreatingHTTPMessage(char* data, int size)
+void CRingBufferTS_Basic::InitHTTPMessage()
 {
-	char log_output[1316 * 4];
-	int indexINI = 0;
-	char* findIniTS;
-
-	if (strstr(data, "HTTP/1.0 200 OK") != NULL || strstr(data, "HTTP/1.1 200 OK") != NULL)
-	{
-		m_Traces->WriteTrace("TRANSPORT  :: Received response HTTP message.\n", LEVEL_TRZ_3);
-		
-		//End of http header
-		findIniTS = (char*)strstr((const char*)data, (const char*) "\r\n\r\n");
-		if (findIniTS != NULL)
-		{
-			indexINI = findIniTS - data;
-			if (m_Traces->IsLevelWriteable(LEVEL_TRZ_4))
-			{
-				strncpy(log_output, "TRANSPORT  :: Header of response HTTP message received:\n", 1316 * 4);
-				strncat(log_output, data, indexINI);
-				strcat(log_output, "\n");
-				m_Traces->WriteTrace(log_output, LEVEL_TRZ_4);
-			}
-			m_Traces->WriteTrace("Complete received package with HTTP header:\n", LEVEL_TRZ_5);
-			if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
-			{
-				strncpy(log_output, data, size);
-				m_Traces->WriteTrace(log_output, LEVEL_TRZ_5);
-				m_Traces->WriteTrace("\n", LEVEL_TRZ_5);
-			}
-			if (size - (indexINI + 4) != 0)
-			{
-				Insert(&data[indexINI + 4], size - (indexINI + 4));
-				if (!CheckValidTSPacket())
-					m_Traces->WriteTrace("TRANSPORT  :: Content of response HTTP message have not synchronization.\n", LEVEL_TRZ_3);
-				else
-					m_Traces->WriteTrace("TRANSPORT  :: Content of response HTTP message have synchronization SYNC.\n", LEVEL_TRZ_3);
-			}
-			else
-				m_Traces->WriteTrace("TRANSPORT  :: Response HTTP message doesn't have TS content. Not save data at buffer\n", LEVEL_TRZ_3);
-		}
-
-	}
-
 	//Initialize m_timeLastSending
 	GetLocalTime(&m_timeLastSending);
 }
 
 void CRingBufferTS_Basic::GenerateNullPaddingTSPackets(char* data, int numPackets)
 {
-	char* datagram = new char[188];
-	strcpy(datagram, "");
+	char datagram[188];
 	int i = 0;
 
 	//Generate a null padding TS packet 
@@ -454,26 +301,17 @@ void CRingBufferTS_Basic::GenerateNullPaddingTSPackets(char* data, int numPacket
 	//Special byte 0x1C. (It's Continuity Counter but I fix de value)
 	datagram[3] = '\x1c';
 
-	for (i = 4; i < 188; i++)
-	{
-		datagram[i] = 0;
-	}
+	memset(&data[4], 0, 184);
 
 	//Return number of null packets required
-	strcpy(data,"");
 	for (i = 0; i < numPackets; i++)
 	{
 		memcpy(&data[i*188], datagram, 188);
 	}
-
-	delete[]datagram;
 }
 
 int CRingBufferTS_Basic::PIDFiltering(char* data)
 {
-	char log_output[1024];
-	memset(log_output, 0, 1024);
-	
 	unsigned short pid = ObtainPID((const unsigned char *)data);
 
 	if (pid > PID_MAX)
@@ -483,7 +321,9 @@ int CRingBufferTS_Basic::PIDFiltering(char* data)
 	{
 		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_6))
 		{
-			_snprintf(log_output, 1024 - 2, "TRANSPORT  :: PID of packet to FILTER : %d (Add to output buffer)\n", pid);
+			char log_output[4096];
+			memset(log_output, 0, 4096);
+			_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] PID FILTERING packet to  PASS  with PID: %d (Add to output buffer)\n", m_tuner, pid);
 			m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
 		}
 		return 1;
@@ -491,7 +331,9 @@ int CRingBufferTS_Basic::PIDFiltering(char* data)
 
 	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_6))
 	{
-		_snprintf(log_output, 1024 - 2, "TRANSPORT  :: PID of packet to DISCARD: %d\n", pid);
+		char log_output[4096];
+		memset(log_output, 0, 4096);
+		_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] PID FILTERING packet to FILTER with PID: %d\n", m_tuner, pid);
 		m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
 	}
 	return 0;
@@ -588,10 +430,13 @@ void CRingBufferTS_Basic::UpdatePIFFilteringData(CString pidsToFilterList, int i
 
 }
 
+void CRingBufferTS_Basic::SaveTimeToSend()
+{
+	GetLocalTime(&m_timeLastSending);
+}
+
 int CRingBufferTS_Basic::CheckTimeToSend()
 {
-	char log_output[1024];
-	memset(log_output, 0, 1024);
 	SYSTEMTIME curr;
 	GetLocalTime(&curr);
 	
@@ -602,7 +447,9 @@ int CRingBufferTS_Basic::CheckTimeToSend()
 
 	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_6))
 	{
-		_snprintf(log_output, 1024 - 2, "TRANSPORT  :: (DBG) Check Time To Send: Nanoseconds passed: %I64d / MAX_TIME_TO_SEND: %d\n", nanoSecs, m_cfgProxy->getMaxTimeToSendDgram());
+		char log_output[4096];
+		memset(log_output, 0, 4096);
+		_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] (DBG) Check Time To Send: Nanoseconds passed: %I64d / MAX_TIME_TO_SEND: %d\n", m_tuner, nanoSecs, m_cfgProxy->getMaxTimeToSendDgram());
 		m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
 	}
 
@@ -710,10 +557,10 @@ int CRingBufferTS_Basic::CheckTimeToAnalyzeData()
 			{
 					m_receivedPackets = m_filteredPacketsSent;
 			}
-			_snprintf(trace, 1024 - 2, "TRANSPORT  :: ALL DATA [Tuner %d]: Packets: sent data %d, send padding %d, total received %d\n", m_tuner, m_filteredPacketsSent, m_nullPacketsSent, m_receivedPackets);
+			_snprintf(trace, sizeof(trace) - 2, "TRANSPORT  :: [Tuner %d] ALL DATA  : Packets: sent data %d, send padding %d, total received %d, total lookaheads %d\n", m_tuner, m_filteredPacketsSent, m_nullPacketsSent, m_receivedPackets, m_lockaheads);
 		}
 		else
-			_snprintf(trace, 1024 - 2, "TRANSPORT  :: PID FILTERING DATA [Tuner %d]: Packets: sent data %d, send padding %d, filtered out %d, total received %d\n", m_tuner, m_filteredPacketsSent, m_nullPacketsSent, /*m_filteredOutPacketsDescarted*/m_receivedPackets - m_filteredPacketsSent, m_receivedPackets);
+			_snprintf(trace, sizeof(trace) - 2, "TRANSPORT  :: [Tuner %d] FILTERING : Packets: sent data %d, send padding %d, filtered out %d, total received %d, total sended %d, total lookaheads %d\n", m_tuner, m_filteredPacketsSent, m_nullPacketsSent, /*m_filteredOutPacketsDescarted*/m_receivedPackets - m_filteredPacketsSent, m_receivedPackets, m_filteredPacketsSent + m_nullPacketsSent, m_lockaheads);
 		
 		m_Traces->WriteTrace(trace, LEVEL_TRZ_3);
 
@@ -721,6 +568,7 @@ int CRingBufferTS_Basic::CheckTimeToAnalyzeData()
 		m_filteredOutPacketsDescarted = 0;
 		m_nullPacketsSent = 0;
 		m_receivedPackets = 0;
+		m_lockaheads = 0;
 
 		GetLocalTime(&m_timeLastAnalysis);
 

@@ -30,11 +30,15 @@
 #define new DEBUG_NEW
 #endif
 
+
 // CHDHRProxyIPTVApp
 
 BEGIN_MESSAGE_MAP(CHDHRProxyIPTVApp, CWinApp)
 	ON_COMMAND(ID_HELP, &CWinApp::OnHelp)
 END_MESSAGE_MAP()
+
+
+// CHDHRProxyIPTVApp construction
 
 CHDHRProxyIPTVApp::CHDHRProxyIPTVApp()
 {

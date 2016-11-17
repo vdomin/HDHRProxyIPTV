@@ -22,9 +22,6 @@
     <ClCompile Include="src\HDHRProxyIPTVDlg.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\RingBufferTS.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\RingBufferTS_Basic.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -73,9 +70,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\InfoHDHR.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\RingBufferTS.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\RingBufferTS_Basic.h">

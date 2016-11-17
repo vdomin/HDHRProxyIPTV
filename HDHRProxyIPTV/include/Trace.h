@@ -23,6 +23,7 @@
 */
 
 #pragma once
+
 #include "io.h"
 #include "stdio.h"
 #include "ConfigProxy.h"
@@ -35,7 +36,7 @@
 #define LEVEL_TRZ_2	2
 #define LEVEL_TRZ_3	3
 #define LEVEL_TRZ_4	4
-#define LEVEL_TRZ_5	5	//Traces of flow http
+#define LEVEL_TRZ_5	5	//Traces pf flow http
 #define LEVEL_TRZ_6	6	//Headers of TS packets (188) sent by the Client on HTTP Transport
 #define ERR			7
 #define WRNG		8  //WARNING
@@ -44,7 +45,7 @@ class CTrace
 {
 public:
 	FILE *m_traceFile;
-	int m_traceLevel;
+	volatile int m_traceLevel;
 	CConfigProxy* m_cfgProxy;
 
 	CTrace();
@@ -54,7 +55,7 @@ public:
 	void setTraceLevel(int nivTrz) { m_traceLevel = nivTrz; }
 	void InitializeTrace(int nivelTrz = 0);
 	void StopTrace();
-	char* ObtainCurrentDateTime();
+	void ObtainCurrentDateTime(char* datetime, int size);
 	void WriteTrace(char *traza, int level);
 	void WriteTraceForceLevel(char *traza, int level);
 	void CleanTrace();

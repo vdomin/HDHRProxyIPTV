@@ -32,11 +32,11 @@ class CTrace;
 class CHDHRProxyIPTVDlg;
 class CGestionProxy;
 
-#define NAME_FILE_INI "HDHRProxyIPTV.ini"
+#define NAME_FILE_INI     "HDHRProxyIPTV.ini"
 #define NAME_FILE_MAPLIST "HDHRProxyIPTV_MappingList.ini"
 
-#define MAX_TIME_TO_SEND	"35000000"		//Max time to send a TS packet (1316). Relative to RingBuffer
-#define TIME_RESPONSE_CLI	25
+#define MAX_TIME_TO_SEND	35000000		//Max time to send a TS packet (1316). Relative to RingBuffer
+#define MAX_TIME_TO_SEND_S	"35000000"
 
 typedef struct
 {
@@ -84,6 +84,8 @@ typedef struct
 	CString lockkey;
 	CString program;
 	CString pidsProgram;	//Internal PIDs filter
+	CString readbuffer;
+	CString ringbuffer;
 } InfoActualSelectCli;
 
 
@@ -116,27 +118,28 @@ public:
 	CString m_hdhrServerPuerto;
 	int m_traceLevel;
 	int m_tipoProgTabla;
-	int m_autostart; //1 / 0
+	int m_autostart;  // 1 / 0
 	int m_TunersNumber;
 	int m_TunersNumberToSaveINI;
-	int m_Lock; //1: lock (lockkey) is applied; 0: No lock is applied even comes message of set lockkey
+	int m_Lock;  //1: lock (lockkey) is applied; 0: No lock is applied even comes message of set lockkey
 	int m_autoCleanLog;
 	__int64 m_maxTimeToSendDgram;
 	__int64 m_maxTimeToPacket;
-	int m_timerResponseClient;  //Timer in seconds to Control phase, time to response Clients for each tuner
+	CString m_FullTSReplace;
 
 	//Response to request of HDHR Clients that are part of configuration of de HDHR Server (device)
 	CString sys_model;		//response to /sys/model
 	CString sys_hwmodel;	//response to /sys/hwmodel
 	CString version;		//response to /sys/version
 	CString sys_copyright;	//response to /sys/copyright
-	CString sys_features_ini;	//response to /sys/features. Format in the Config INI file
+	CString sys_features_ini;	  //response to /sys/features. Format in the Config INI file
 	CString sys_features;	//response to /sys/features. Format to send
-	CString sys_dvbc_modulation;	//response to /sys/dvbc_modulation
+	CString sys_dvbc_modulation;  //response to /sys/dvbc_modulation
+	CString sys_channelmap;	//response to /tunerX/channelmap
 	CString sys_debug_ini;
 	CString sys_debug;
 
-	CString lineup_location;	//response to /lineup/location
+	CString lineup_location;	  //response to /lineup/location
 	
 	CString m_multicast;
 	CString m_servSATIP;
@@ -178,7 +181,7 @@ public:
 	CString getServSATIP() { return m_servSATIP; }
 	__int64 getMaxTimeToSendDgram() { return m_maxTimeToSendDgram; }
 	__int64 getMaxTimeToPacket() { return m_maxTimeToPacket; }
-	int getTimerResponseClient() { return m_timerResponseClient; }
+	CString getFullTSReplace() { return m_FullTSReplace; }
 
 	int SaveItems();
 	CString ParserProgramTable(CString progTable, ChannelMappingList* mapList);

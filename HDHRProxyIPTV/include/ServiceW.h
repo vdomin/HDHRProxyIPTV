@@ -29,10 +29,10 @@
 #include "tlhelp32.h"
 #include "Aclapi.h"
 
+
 #define NAME_SERVICE "HDHRProxyIPTV"
 #define DESC_SERVICE "HDHR Proxy IPTV"
 
-/**** Class not in use ****/
 class CServiceW
 {
 public:
@@ -53,3 +53,4 @@ public:
 	void ObtainError(int error);
 	int AssignPermissionsService(LPCTSTR servicio, LPTSTR usuario, DWORD permisos);
 };
+

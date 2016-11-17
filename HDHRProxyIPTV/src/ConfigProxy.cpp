@@ -36,7 +36,7 @@ CConfigProxy::~CConfigProxy()
 
 void CConfigProxy::ReadFileINI()
 {
-	CString seccion;
+	CString section;
 
 	//Obtain the current directory
 	TCHAR sDirActual[200];
@@ -52,74 +52,82 @@ void CConfigProxy::ReadFileINI()
 	free((void*)AfxGetApp()->m_pszProfileName);
 	AfxGetApp()->m_pszProfileName = _tcsdup(path);
 
-// HDHR_DEVICE Section 
-	seccion = _T("HDHR_DEVICE");
+    // HDHR_DEVICE Section 
+	section = _T("HDHR_DEVICE");
 	
 	m_device_id = AfxGetApp()->GetProfileString(_T("HDHR_DEVICE"), _T("DEVICE_ID"));
-	
+	m_device_id.Replace(L"\"", L"");
 	if (!m_device_id.Compare(L""))
 		m_device_id.Format(_T(ID_DISP_SERV_HDHR));  //If there is no saved data, default value is set
 
-	m_hdhrServerIP = AfxGetApp()->GetProfileString(seccion, L"SERVER_IP");
+	m_hdhrServerIP = AfxGetApp()->GetProfileString(section, L"SERVER_IP");
+	m_hdhrServerIP.Replace(L"\"", L"");
 	if (!m_hdhrServerIP.Compare(L""))
 	{
 		ObtainHostIP(&m_hdhrServerIP);
 	}
 
-	m_autostart = AfxGetApp()->GetProfileInt(seccion, L"AUTOSTART", 0);
+	m_autostart = AfxGetApp()->GetProfileInt(section, L"AUTOSTART", 0);
 
-	m_TunersNumber = AfxGetApp()->GetProfileInt(seccion, L"TUNERS_NUM", 2);
+	m_TunersNumber = AfxGetApp()->GetProfileInt(section, L"TUNERS_NUM", 2);
 	m_TunersNumberToSaveINI = m_TunersNumber;
-
 	if (m_TunersNumber == 0)
 		m_TunersNumber = 2;
 
 	if (m_TunersNumber > 9)
 		m_TunersNumber = 9;
 
-	m_Lock = AfxGetApp()->GetProfileInt(seccion, L"LOCK", 0);
+	m_Lock = AfxGetApp()->GetProfileInt(section, L"LOCK", 0);
 	if (m_Lock != 0 && m_Lock != 1)
 		m_Lock = 0;
 
-	CString t = AfxGetApp()->GetProfileString(seccion, L"MAX_TIME_SEND_DGRAM", _T(MAX_TIME_TO_SEND));
+	CString t = AfxGetApp()->GetProfileString(section, L"MAX_TIME_SEND_DGRAM", _T(MAX_TIME_TO_SEND_S));
+	t.Replace(L"\"", L"");
 	m_maxTimeToSendDgram = atoll(CStringA(t));
 	m_maxTimeToPacket = m_maxTimeToSendDgram / 7;
 
-	m_timerResponseClient = AfxGetApp()->GetProfileInt(seccion, L"TIMER_RESPONSE_CLI", TIME_RESPONSE_CLI);
-	
+	m_FullTSReplace = AfxGetApp()->GetProfileString(section, L"FULL_TS_REPLACE");
+	m_FullTSReplace.Replace(L"\"", L"");
+	if (!m_FullTSReplace.Compare(L""))
+		m_FullTSReplace = L"0x0000-0x1FFF";
+
+
 	// EMU_DEBUG Section
-	seccion = L"EMU_DEBUG";
+	section = L"EMU_DEBUG";
 	CString level;
-	level = AfxGetApp()->GetProfileString(seccion, L"LEVEL");
+	level = AfxGetApp()->GetProfileString(section, L"LEVEL");
+	level.Replace(L"\"", L"");
 	if (!level.Compare(L""))
 		level.Format(L"2");  //If there is no saved data , default value is set
-
 	CStringA n(level);
 	m_traceLevel = atoi(n);
 
-	m_autoCleanLog = AfxGetApp()->GetProfileInt(seccion, L"AUTO_CLEAN_LOG", 0);
+	m_autoCleanLog = AfxGetApp()->GetProfileInt(section, L"AUTO_CLEAN_LOG", 0);
 	if (m_autoCleanLog != 0 && m_autoCleanLog != 1)
 		m_autoCleanLog = 0;
 
-	// HDHR_SYS_CONFIG Section 
-	seccion = _T("HDHR_SYS_CONFIG");
 
-	version = AfxGetApp()->GetProfileString(seccion, _T("SYS_VERSION"), _T(VERSION_VALUE));
+	// HDHR_SYS_CONFIG Section 
+	section = _T("HDHR_SYS_CONFIG");
+
+	version = AfxGetApp()->GetProfileString(section, _T("SYS_VERSION"), _T(VERSION_VALUE));
 	version.Replace(L"\"", L"");
-	sys_model = AfxGetApp()->GetProfileString(seccion, _T("SYS_MODEL"), _T(SYS_MODEL_VALUE));
+	sys_model = AfxGetApp()->GetProfileString(section, _T("SYS_MODEL"), _T(SYS_MODEL_VALUE));
 	sys_model.Replace(L"\"", L"");
-	sys_hwmodel = AfxGetApp()->GetProfileString(seccion, _T("SYS_HWMODEL"), _T(SYS_HWMODEL_VALUE));
+	sys_hwmodel = AfxGetApp()->GetProfileString(section, _T("SYS_HWMODEL"), _T(SYS_HWMODEL_VALUE));
 	sys_hwmodel.Replace(L"\"", L"");
-	sys_copyright = AfxGetApp()->GetProfileString(seccion, _T("SYS_COPYRIGHT"), _T(SYS_COPYRIGHT_VALUE));
+	sys_copyright = AfxGetApp()->GetProfileString(section, _T("SYS_COPYRIGHT"), _T(SYS_COPYRIGHT_VALUE));
 	sys_copyright.Replace(L"\"", L"");
-	sys_dvbc_modulation = AfxGetApp()->GetProfileString(seccion, _T("SYS_DVBC_MODULATION"), _T(SYS_DVBC_MODULATION_VALUE));
+	sys_dvbc_modulation = AfxGetApp()->GetProfileString(section, _T("SYS_DVBC_MODULATION"), _T(SYS_DVBC_MODULATION_VALUE));
 	sys_dvbc_modulation.Replace(L"\"", L"");
-	lineup_location = AfxGetApp()->GetProfileString(seccion, _T("LINEUP_LOCATION"), _T(LINEUP_LOC_VALUE));
+	sys_channelmap = AfxGetApp()->GetProfileString(section, _T("SYS_CHANNEL_MAP"), _T(SYS_CHANNEL_MAP_VALUE));
+	sys_channelmap.Replace(L"\"", L"");
+	lineup_location = AfxGetApp()->GetProfileString(section, _T("LINEUP_LOCATION"), _T(LINEUP_LOC_VALUE));
 	lineup_location.Replace(L"\"", L"");
-	sys_features_ini = AfxGetApp()->GetProfileString(seccion, _T("SYS_FEATURES"), _T(SYS_FEATURES_VALUE));
+	sys_features_ini = AfxGetApp()->GetProfileString(section, _T("SYS_FEATURES"), _T(SYS_FEATURES_VALUE));
 	sys_features_ini.Replace(L"\"", L"");
 	sys_features = ParserHDHRResponseMultiLine(sys_features_ini);
-	sys_debug_ini = AfxGetApp()->GetProfileString(seccion, _T("SYS_DEBUG"), _T(SYS_DEBUG_VALUE));
+	sys_debug_ini = AfxGetApp()->GetProfileString(section, _T("SYS_DEBUG"), _T(SYS_DEBUG_VALUE));
 	sys_debug_ini.Replace(L"\"", L"");
 	sys_debug = ParserHDHRResponseMultiLine(sys_debug_ini);
 }
@@ -133,6 +141,7 @@ void CConfigProxy::ObtainHostIP(CString *ip)
 	host.sin_addr = *(struct in_addr*) gethostbyname(nombre)->h_addr;
 	*ip = inet_ntoa(host.sin_addr);
 }
+
 
 int CConfigProxy::SaveItems()
 {
@@ -182,9 +191,6 @@ int CConfigProxy::SaveItems()
 	if (!AfxGetApp()->WriteProfileString(seccion, _T("MAX_TIME_SEND_DGRAM"), t))
 		return 0;
 
-	if (!AfxGetApp()->WriteProfileInt(seccion, _T("TIMER_RESPONSE_CLI"), m_timerResponseClient))
-		return 0;
-
 	// EMU_DEBUG Section
 	seccion = L"EMU_DEBUG";
 	CString level;
@@ -227,6 +233,12 @@ int CConfigProxy::SaveItems()
 	if (!AfxGetApp()->WriteProfileString(seccion, _T("SYS_DVBC_MODULATION"), sys_dvbc_modulation))
 		return 0;
 	sys_dvbc_modulation.Replace(L"\"", L"");
+
+	sys_channelmap.Insert(0, L"\"");
+	sys_channelmap.Append(L"\"");
+	if (!AfxGetApp()->WriteProfileString(seccion, _T("SYS_CHANNEL_MAP"), sys_channelmap))
+		return 0;
+	sys_channelmap.Replace(L"\"", L"");
 
 	lineup_location.Insert(0, L"\"");
 	lineup_location.Append(L"\"");
@@ -276,6 +288,7 @@ void CConfigProxy::ReadFileMappingList()
 	char log_output[1024];
 	memset(log_output, 0, 1024);
 	int errFormat = 0;
+	
 
 	//Obtain current directory
 	TCHAR sDirActual[200];
@@ -311,7 +324,7 @@ void CConfigProxy::ReadFileMappingList()
 		{
 			if (m_trace->IsLevelWriteable(WRNG))
 			{
-				_snprintf(log_output, 1024 - 2, "Mapping List: Channel of CH%d is 0 or not defined\n", i);
+				_snprintf(log_output, sizeof(log_output) - 2, "Mapping List: Channel of CH%d is 0 or not defined\n", i);
 				m_trace->WriteTrace(log_output, WRNG);
 			}
 		}
@@ -321,6 +334,7 @@ void CConfigProxy::ReadFileMappingList()
 		else
 		{
 			fch = atof(CStringA(ch));
+			//ok m_infoChannels[j].channel = fch * 1000000; //Conversion from MHz to Hz
 			m_infoChannels[j].channel = fch * 10000000; //Conversion from MHz to Hz
 		}
 
@@ -329,7 +343,7 @@ void CConfigProxy::ReadFileMappingList()
 		{
 			if (m_trace->IsLevelWriteable(WRNG))
 			{
-				_snprintf(log_output, 1024 - 2, "Mapping List: LowFreq of CH%d is 0 or not defined\n", i);
+				_snprintf(log_output, sizeof(log_output) - 2, "Mapping List: LowFreq of CH%d is 0 or not defined\n", i);
 				m_trace->WriteTrace(log_output, WRNG);
 			}
 		}
@@ -338,7 +352,7 @@ void CConfigProxy::ReadFileMappingList()
 		{
 			if (m_trace->IsLevelWriteable(WRNG))
 			{
-				_snprintf(log_output, 1024 - 2, "Mapping List: HighFreq of CH%d is 0 or not defined\n", i);
+				_snprintf(log_output, sizeof(log_output) - 2, "Mapping List: HighFreq of CH%d is 0 or not defined\n", i);
 				m_trace->WriteTrace(log_output, WRNG);
 			}
 		}
@@ -388,7 +402,7 @@ void CConfigProxy::ReadFileMappingList()
 			{
 				if (m_trace->IsLevelWriteable(WRNG))
 				{
-					_snprintf(log_output, 1024 - 2, "Mapping List: Program_table of CH%d is not defined\n", i);
+					_snprintf(log_output, sizeof(log_output) - 2, "Mapping List: Program_table of CH%d is not defined\n", i);
 					m_trace->WriteTrace(log_output, WRNG);
 				}
 			}
@@ -399,7 +413,7 @@ void CConfigProxy::ReadFileMappingList()
 
 			if (m_trace->IsLevelWriteable(WRNG))
 			{
-				_snprintf(log_output, 1024 - 2, "Mapping List: Program_table of CH%d is not defined\n", i);
+				_snprintf(log_output, sizeof(log_output) - 2, "Mapping List: Program_table of CH%d is not defined\n", i);
 				m_trace->WriteTrace(log_output, WRNG);
 			}
 		}
@@ -426,7 +440,7 @@ void CConfigProxy::ReadFileMappingList()
 				m_infoChannels[j].URLGet_ExtPidFilt = m_infoChannels[j].URLGet;
 				if (m_trace->IsLevelWriteable(WRNG))
 				{
-					_snprintf(log_output, 1024 - 2, "Mapping List: URLGet of CH%d is not defined. Protocol is HTTP\n", i);
+					_snprintf(log_output, sizeof(log_output) - 2, "Mapping List: URLGet of CH%d is not defined. Protocol is HTTP\n", i);
 					m_trace->WriteTrace(log_output, WRNG);
 				}
 			}
@@ -459,7 +473,7 @@ void CConfigProxy::ReadFileMappingList()
 				{
 					if (m_trace->IsLevelWriteable(WRNG))
 					{
-						_snprintf(log_output, 1024 - 2, "Mapping List: URLGet of CH%d can have an incorrect format, look over it. Protocol is HTTP\n", i);
+						_snprintf(log_output, sizeof(log_output) - 2, "Mapping List: URLGet of CH%d can have an incorrect format, look over it. Protocol is HTTP\n", i);
 						m_trace->WriteTrace(log_output, WRNG);
 					}
 				}
@@ -476,7 +490,7 @@ void CConfigProxy::ReadFileMappingList()
 				m_infoChannels[j].UDPsource.Format(L"");
 				if (m_trace->IsLevelWriteable(WRNG))
 				{
-					_snprintf(log_output, 1024 - 2, "Mapping List: UDPsource of CH%d is not defined. Protocol is UDP\n", i);
+					_snprintf(log_output, sizeof(log_output) - 2, "Mapping List: UDPsource of CH%d is not defined. Protocol is UDP\n", i);
 					m_trace->WriteTrace(log_output, WRNG);
 				}
 			}
@@ -504,7 +518,7 @@ void CConfigProxy::ReadFileMappingList()
 				{
 					if (m_trace->IsLevelWriteable(WRNG))
 					{
-						_snprintf(log_output, 1024 - 2, "Mapping List: UDPsource of CH%d can have an incorrect format, look over it. Protocol is UDP\n", i);
+						_snprintf(log_output, sizeof(log_output) - 2, "Mapping List: UDPsource of CH%d can have an incorrect format, look over it. Protocol is UDP\n", i);
 						m_trace->WriteTrace(log_output, WRNG);
 					}
 				}
@@ -514,7 +528,7 @@ void CConfigProxy::ReadFileMappingList()
 		{
 			if (m_trace->IsLevelWriteable(WRNG))
 			{
-				_snprintf(log_output, 1024 - 2, "Mapping List: Protocol of CH%d is not defined (HTTP/UDP)\n", i);
+				_snprintf(log_output, sizeof(log_output) - 2, "Mapping List: Protocol of CH%d is not defined (HTTP/UDP)\n", i);
 				m_trace->WriteTrace(log_output, WRNG);
 			}
 		}
@@ -702,6 +716,8 @@ CString CConfigProxy::ObtainProgsTableByChannel(int canal)
 
 	return CString("");
 }
+
+///////////////////////////////////////
 
 void CConfigProxy::AddClientToInterface()
 {

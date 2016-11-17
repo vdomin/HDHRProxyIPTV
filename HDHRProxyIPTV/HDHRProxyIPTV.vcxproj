@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -28,21 +28,21 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <UseOfMfc>Static</UseOfMfc>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <UseOfMfc>Static</UseOfMfc>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <UseOfMfc>Static</UseOfMfc>
@@ -50,7 +50,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <UseOfMfc>Static</UseOfMfc>
@@ -90,7 +90,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>.\include;..\libhdhomerun_20100213\libhdhomerun_20100213\libhdhomerun;$(ProjectDir)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\include;libs\libhdhomerun_20100213;$(ProjectDir)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
     </ClCompile>
@@ -118,7 +118,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_WINDOWS;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>.\include;..\libhdhomerun_20100213\libhdhomerun_20100213\libhdhomerun;$(ProjectDir)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\include;libs\libhdhomerun_20100213;$(ProjectDir)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <OmitFramePointers>false</OmitFramePointers>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -147,7 +147,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>.\include;..\libhdhomerun_20100213\libhdhomerun_20100213\libhdhomerun;$(ProjectDir)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\include;libs\libhdhomerun_20100213;$(ProjectDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -217,7 +217,6 @@
     <ClCompile Include="src\HDHRProxyIPTV.cpp" />
     <ClCompile Include="src\HDHRProxyIPTVDlg.cpp" />
     <ClCompile Include="src\PanelInfoTunerDlg.cpp" />
-    <ClCompile Include="src\RingBufferTS.cpp" />
     <ClCompile Include="src\RingBufferTS_Basic.cpp" />
     <ClCompile Include="src\ServiceW.cpp" />
     <ClCompile Include="src\stdafx.cpp" />
@@ -237,7 +236,6 @@
     <ClInclude Include="include\Parameterization.h" />
     <ClInclude Include="include\HDHRProxyIPTV.h" />
     <ClInclude Include="include\HDHRProxyIPTVDlg.h" />
-    <ClInclude Include="include\RingBufferTS.h" />
     <ClInclude Include="include\RingBufferTS_Basic.h" />
     <ClInclude Include="include\ServiceW.h" />
     <ClInclude Include="include\stdafx.h" />

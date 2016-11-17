@@ -27,24 +27,13 @@
 #include "ConfigProxy.h"
 #include "Trace.h"
 #include "hdhomerun_os_windows.h"
-#include "RingBufferTS.h"
 #include "RingBufferTS_Basic.h"
-
-
-/*Posibilities of compiler with buffer
-  Not #define UseRingBuffer	--> Not use of buffer
-  #define UseBasicRingBuffer	--> Use Basic Ring buffer, without pointers. It functions OK
-  #define UseRingBuffer		--> Use Ring buffer dynamic, first version, it not functions 100%
-*/
-//#define UseRingBuffer
-#define UseBasicRingBuffer
-
-/*Define to prove sending TS by UDP packets with <1316 bytes. packets send < 188x7*/
-//#define SplitSendTSPacket
 
 #define UDP_TS 1
 #define RTP_TS 2
 #define HTTP_TS 3
+
+#define BLOCKING_WAIT_TIME 4000  // Miliseconds to block TCP socket read operations!
 
 class CTransport
 {
@@ -67,7 +56,6 @@ public:
 	int m_applyExtPidFiltering;
 	CString m_dataGETHTTP;
 
-	CRingBufferTS* m_ringBuffer;
 	CRingBufferTS_Basic* m_basicRingBuffer;
 
 	int m_tuner;
@@ -77,6 +65,11 @@ public:
 	void setfailedConnectHTTP(int value) { m_failedConnectHTTP = value; }
 	int getrefreshFailedConnHTTP() { return m_refreshFailedConnHTTP; }
 	void setrefreshFailedConnHTTP(int value) { m_refreshFailedConnHTTP = value; }
+
+	char readBuffer[188 * 7 * 24];    // Buffer user for reading from socket; it may contain data from a previous read call!
+	int  readBufferSize = sizeof(readBuffer);
+	int  readBufferPos = 0;           // Size of valid data on the buffer.
+	int  readBufferMinPos = 7 * 188;  // Position of lookahead valid data on the buffer.
 
 	CTransport();
 	~CTransport();
@@ -109,8 +102,6 @@ public:
 
 	int InitilizeTransportStream(int channel, CString pidsToFilterList);
 	int TreatReceivedDataHTTP();
-	int TreatReceivedDataHTTP_SinRBuffer();
-	int TreatReceivedDataHTTP_BasicBuffer();
 	void TreatReceivedDataTS();
 	void StopTransportStreamHTTP();
 	int ChangeSourceTS(int channel, CString pidsToFilterList);

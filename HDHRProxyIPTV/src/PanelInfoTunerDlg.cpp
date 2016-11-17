@@ -25,11 +25,13 @@
 #include "stdafx.h"
 #include "PanelInfoTunerDlg.h"
 
+
 CPanelInfoTunerDlg::CPanelInfoTunerDlg()
 {
 	m_CfgProxy = CConfigProxy::GetInstance();
 
 }
+
 
 CPanelInfoTunerDlg::~CPanelInfoTunerDlg()
 {
@@ -47,6 +49,8 @@ void CPanelInfoTunerDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_EDIT_LOCKKEY, m_lockkey);
 	DDX_Control(pDX, IDC_EDIT_PROGRAM, m_program);
 	DDX_Control(pDX, IDC_EDIT_PIDS_FILTERING, m_pidsProgram);
+	DDX_Control(pDX, IDC_EDIT_IN_BUFFER, m_readbuffer);
+	DDX_Control(pDX, IDC_EDIT_OUT_BUFFER, m_ringbuffer);
 }
 
 void CPanelInfoTunerDlg::UpdateDataTuner()
@@ -73,6 +77,8 @@ void CPanelInfoTunerDlg::UpdateDataTuner()
 		m_HTTPTSCli.SetWindowText(m_CfgProxy->m_infoActualSelCli->httpTS);
 	else
 		m_HTTPTSCli.SetWindowText(m_CfgProxy->m_infoActualSelCli->udpTS);
+	m_readbuffer.SetWindowText(m_CfgProxy->m_infoActualSelCli->readbuffer);
+	m_ringbuffer.SetWindowText(m_CfgProxy->m_infoActualSelCli->ringbuffer);
 
 	m_HTTPTSCli.RedrawWindow();
 	m_program.RedrawWindow();

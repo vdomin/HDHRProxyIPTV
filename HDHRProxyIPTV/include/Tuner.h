@@ -23,11 +23,12 @@
 */
 
 #pragma once
+
 #include "hdhomerun_os_windows.h"
 #include "Transport.h"
 #include "Trace.h"
-#include<time.h>
-#include<stdio.h>
+#include <time.h>
+#include <stdio.h>
 #include "winsock2.h"
 
 #define MAX_SIZE_FILTER 32536
@@ -39,14 +40,14 @@ public:
 	int state; //State in which the tuner is : STANDBY; TUNED_CHAN; FILTERING; STREAMING
 	long canal;
 	long channelNotInMapList;
-	char* lock;
+	char lock[15];
 	int ss;
 	int snq;
 	int seq;
 	long bps;
 	int pps;
 	int program;
-	char* filter;
+	char filter[MAX_SIZE_FILTER];
 	char target[50];
 	char channelmap[12];
 	uint32_t lockkey;
@@ -79,8 +80,6 @@ public:
 	CString getPidsToFiltering() { return pidsToFiltering; };
 	uint32_t getLockkey() { return lockkey; }
 	void setLockkey(uint32_t lock) { lockkey = lock; }
-	char* getIPLockkey() { return IPLockkey; }
-	char* getChannelmap() { return channelmap; }
 	void setChannelmap(char* chmap) { strcpy(channelmap, chmap); }
 	
 	void setSS(int s) { ss = s; }
@@ -97,6 +96,8 @@ public:
 	void ChangePIDsByFilterInStreaming(char* filt, char* ip);
 	void ChangePIDsByProgramInStreaming(int prog, char* ip);
 	CString ConvertHexPidsListToNum(CString filterpids);
+	int getReadBufferStatus();
+	int getRingBufferStatus();
 
 	void SetTimers();
 	int CheckTimer();

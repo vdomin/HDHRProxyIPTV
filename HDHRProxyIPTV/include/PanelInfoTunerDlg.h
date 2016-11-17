@@ -51,6 +51,9 @@ public:
 	CEdit m_lockkey;
 	CEdit m_program;
 	CEdit m_pidsProgram;
+	CEdit m_readbuffer;
+	CEdit m_ringbuffer;
 
 	void UpdateDataTuner();
 };
+

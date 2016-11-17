@@ -42,7 +42,7 @@ public:
 	uint32_t m_IPHDHR; //IP of HDHR Client to which send the messages in Discovery phase
 	uint16_t m_remotePortDisc; //Client remote port where send Discovery response
 	uint32_t m_remoteIPDisc; //IP of client in Discovery phase
-	char *m_sRemoteIPDisc; //IP of cliente in Discovery phase
+	char *m_sRemoteIPDisc; //IP of client in Discovery phase
 	uint16_t m_remotePortControl; //remote client port where send Control response
 	uint32_t m_iRemoteIPControl; //IP of client in Control phase
 	char *m_sRemoteIPControl; //IP of client in Control phase
@@ -58,7 +58,7 @@ public:
 	uint16_t getPortClientHDHR() { return m_remotePortDisc; }
 	char *getDiscIPClientHDHR() {return m_sRemoteIPDisc; }
 	void setIPHDHR(CString ip);
-	char* TreatIP(char *ip);
+	void TreatIP(char *out, char* ip);
 	int CreateSocketServUDP_Discovery(CTrace *traceLog = NULL);
 	void StopSocketServUDP_Discovery();
 	int ReceiveDataDiscoveryUDP(CTrace *traceLog = NULL);

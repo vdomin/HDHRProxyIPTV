@@ -22,6 +22,9 @@
 *
 */
 
+// HDHRProxyIPTVDlg.cpp : implementation file
+//
+
 #include "stdafx.h"
 #include "HDHRProxyIPTV.h"
 #include "HDHRProxyIPTVDlg.h"
@@ -44,6 +47,7 @@ public:
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 
+// Implementation
 protected:
 	DECLARE_MESSAGE_MAP()
 };
@@ -143,6 +147,7 @@ END_MESSAGE_MAP()
 
 void CHDHRProxyIPTVDlg::OnTcnSelchangeTabTuners(NMHDR *pNMHDR, LRESULT *pResult)
 {
+	// TODO: Add your control notification handler code here
 	m_tabTuners.OnSelchange(pNMHDR, pResult);
 	
 	UpdateInfoTuner();
@@ -257,6 +262,7 @@ BOOL CHDHRProxyIPTVDlg::OnInitDialog()
 	m_btnStopServ.EnableWindow(FALSE);
 	/***************************************************************************/
 
+
 	CMenu* pSysMenu = GetSystemMenu(FALSE);
 	if (pSysMenu != NULL)
 	{
@@ -358,7 +364,6 @@ void CHDHRProxyIPTVDlg::OnEnChangeEditPort()
 
 void CHDHRProxyIPTVDlg::OnBnClickedButtonInstService()
 {
-/*
 	if (!m_ServiceWindows->InstallService())
 		AfxMessageBox(_T("Error when installation the Service"), MB_OK);
 	else
@@ -368,33 +373,29 @@ void CHDHRProxyIPTVDlg::OnBnClickedButtonInstService()
 		m_btnStopServ.EnableWindow(TRUE);
 		m_btnDesInstServ.EnableWindow(TRUE);
 	}
-*/
 }
 
 void CHDHRProxyIPTVDlg::OnBnClickedButtonDesinstServ()
 {
-/*
 	if (!m_ServiceWindows->StopService())
 		AfxMessageBox(_T("Error when stop the service"), MB_OK);
 
 	if (!m_ServiceWindows->DesInstallService())
 	{
 		AfxMessageBox(_T("Error when uninstall the service"), MB_OK);
-		char textErr[500];
+		char textErr[1024];
 		memset(textErr, 0, 1024);
 		CString sErr;
 		int err = GetLastError();
-		_snprintf(textErr, 1024 - 2, "Err %d", err);
+		_snprintf(textErr, sizeof(textErr) - 2, "Err %d", err);
 		sErr.Format(L"Error %d", err);
 		AfxMessageBox(sErr, MB_OK);
 		m_ServiceWindows->ObtainError(err);
 	}
-*/
 }
 
 void CHDHRProxyIPTVDlg::OnBnClickedButtonStartServ()
 {
-/*
 	if (!m_ServiceWindows->StartServiceWin())
 		AfxMessageBox(_T("Error when start the service"), MB_OK);
 	else
@@ -404,12 +405,10 @@ void CHDHRProxyIPTVDlg::OnBnClickedButtonStartServ()
 		m_btnStartServ.EnableWindow(FALSE);
 		m_btnStopServ.EnableWindow(TRUE);
 	}
-*/
 }
 
 void CHDHRProxyIPTVDlg::OnBnClickedButtonStopServ()
 {
-/*
 	if (!m_ServiceWindows->StopService())
 		AfxMessageBox(_T("Error when stop the service"), MB_OK);
 	else
@@ -417,7 +416,6 @@ void CHDHRProxyIPTVDlg::OnBnClickedButtonStopServ()
 		m_btnStartServ.EnableWindow(TRUE);
 		m_btnStopServ.EnableWindow(FALSE);
 	}
-*/
 }
 
 void CHDHRProxyIPTVDlg::OnBnClickedButtonSave()
@@ -503,7 +501,7 @@ void CHDHRProxyIPTVDlg::OnBnClickedStartProxy()
 	//Obtain the level of trace that must apply
 	int nivelTraza = m_comboLevelTrc.GetCurSel();
 
-	//Obtain id dispositive of HDHR Server for the Proxy, for if it has changed
+	//Obtain id device of HDHR Server for the Proxy, for if it has changed
 	CString idDisp, ip;
 	m_eIdDispositive.GetWindowText(idDisp);
 	m_eIPDHR.GetWindowText(ip);
@@ -520,6 +518,8 @@ void CHDHRProxyIPTVDlg::OnBnClickedStartProxy()
 
 void CHDHRProxyIPTVDlg::OnBnClickedButtonStopProxy()
 {
+	m_GestorProxy->ForceUnlockTuner(m_CurrentTuner);
+	m_GestorProxy->ResetTuner(m_CurrentTuner);
 	m_GestorProxy->StopProxy();
 
 	m_btnStartProxy.EnableWindow(TRUE);
@@ -529,15 +529,18 @@ void CHDHRProxyIPTVDlg::OnBnClickedButtonStopProxy()
 
 void CHDHRProxyIPTVDlg::OnBnClickedButtonChangeLevelTrc()
 {
-	char log_output[100];
-	memset(log_output, 0, 100);
+	int new_value = m_comboLevelTrc.GetCurSel();
+	int old_value = m_CfgProxy->m_traceLevel;
 
 	if (m_trace->IsLevelWriteable(LEVEL_TRZ_1))
 	{
-		_snprintf(log_output, 100 - 2, "CHANGING LOG LEVEL FROM %d TO %d\n", m_CfgProxy->m_traceLevel, m_comboLevelTrc.GetCurSel());
+		char log_output[500];
+		memset(log_output, 0, 500);
+		_snprintf(log_output, sizeof(log_output) - 2, "CHANGING LOG LEVEL FROM %d TO %d\n", old_value, new_value);
 		m_trace->WriteTrace(log_output, LEVEL_TRZ_1);
 	}
-	m_CfgProxy->m_traceLevel = m_comboLevelTrc.GetCurSel();
+
+	m_CfgProxy->m_traceLevel = new_value;
 }
 
 void CHDHRProxyIPTVDlg::OnBnClickedButtonCleanLog()
@@ -549,13 +552,15 @@ void CHDHRProxyIPTVDlg::OnBnClickedButtonCleanLog()
 
 void CHDHRProxyIPTVDlg::OnDestroy()
 {
+	m_trace->WriteTrace("******************* Kill Proxy SATIP2HDHR *******************\n", LEVEL_TRZ_1);
+
+	m_GestorProxy->StopProxy();
+
 	CDialogEx::OnDestroy();
 }
 
 void CHDHRProxyIPTVDlg::OnBnClickedButtonReloadMappingList()
 {
-	char log_output[1024];
-	memset(log_output, 0, 1024);
 	CString chans, ch;
 
 	//Load data from Mapping List file
@@ -574,13 +579,16 @@ void CHDHRProxyIPTVDlg::OnBnClickedButtonReloadMappingList()
 	
 	if (m_trace->IsLevelWriteable(LEVEL_TRZ_1))
 	{
-		_snprintf(log_output, 1024 - 2, "Reload of MappingList: Number of channels in Mapping List File: %d %s\n", m_CfgProxy->m_numChannels, CStringA(chans));
+		char log_output[2048];
+		memset(log_output, 0, 2048);
+		_snprintf(log_output, sizeof(log_output) - 2, "Reload of MappingList: Number of channels in Mapping List File: %d %s\n", m_CfgProxy->m_numChannels, CStringA(chans));
 		m_trace->WriteTrace(log_output, LEVEL_TRZ_1);
 	}
 }
 
 void CHDHRProxyIPTVDlg::OnBnClickedButtonResetTuner()
 {
+	m_GestorProxy->ForceUnlockTuner(m_CurrentTuner);
 	m_GestorProxy->ResetTuner(m_CurrentTuner);
 }
 

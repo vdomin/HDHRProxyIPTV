@@ -142,13 +142,12 @@ int CControl::StartHDHRServer()
 	m_ControlState = INICIADO;
 
 	m_Traces->WriteTrace("CONTROL    :: HDHR server ready to receive Control messages\n", LEVEL_TRZ_2);
-	char log_output[1024];
-	memset(log_output, 0, 1024);
-
 	
 	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 	{
-		_snprintf(log_output, 1024 - 2, "CONTROL    :: Listening by [TCP] %s:%d\n", CStringA(m_ipHDHR), HDHOMERUN_CONTROL_TCP_PORT);
+		char log_output[1024];
+		memset(log_output, 0, 1024);
+		_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Listening by [TCP] %s:%d\n", CStringA(m_ipHDHR), HDHOMERUN_CONTROL_TCP_PORT);
 		m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 	}
 
@@ -162,9 +161,8 @@ int CControl::TreatReceivedData()
 	int i = 0, err = 0;
 	int activity = 0;
 	SOCKET sock = 0, acceptSocket = 0;
-	char* ipClientHDHR = new char[16];
+	char ipClientHDHR[16];
 	memset(ipClientHDHR, 0, 16);
-	strcpy(ipClientHDHR, "");
 	int portClientHDHR = 0;
 	int listSocketsFull = 1;
 
@@ -189,7 +187,7 @@ int CControl::TreatReceivedData()
 	if (activity == SOCKET_ERROR)
 	{
 		err = WSAGetLastError();
-		_snprintf(log_output, 1024 - 2, "CONTROL    :: Error at select call (sockets). Error code: %d\n", err);
+		_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Error at select call (sockets). Error code: %d\n", err);
 		m_Traces->WriteTrace(log_output, ERR);
 
 		wdControlErr++;
@@ -204,10 +202,9 @@ int CControl::TreatReceivedData()
 			StartHDHRServer();
 
 			if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
-				m_Traces->WriteTrace("CONTROL    :: RESTARTED CONTROL Process\n", LEVEL_TRZ_2);
+				m_Traces->WriteTrace("CONTROL    :: RESTARTED CONTROL Process because MAX-SOCKET-ERROR on SELECT\n", LEVEL_TRZ_2);
 		}
 
-		delete[]ipClientHDHR;
 		return 0;
 	}
 
@@ -216,7 +213,6 @@ int CControl::TreatReceivedData()
 	{
 		if (!m_libHDHR.Accept(ipClientHDHR, &portClientHDHR, &acceptSocket))
 		{
-			delete[]ipClientHDHR;
 			return 0;
 		}
 
@@ -232,7 +228,7 @@ int CControl::TreatReceivedData()
 
 				if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
 				{
-					_snprintf(log_output, 1024 - 2, "CONTROL    :: New client socket connection [%s:%d] : Socket %d\n", ipClientHDHR, portClientHDHR, acceptSocket);
+					_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: New client socket connection [%s:%d] : Socket %d\n", ipClientHDHR, portClientHDHR, acceptSocket);
 					m_Traces->WriteTrace(log_output, LEVEL_TRZ_5);
 				}
 				break;
@@ -242,7 +238,7 @@ int CControl::TreatReceivedData()
 		{
 			if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 			{
-				_snprintf(log_output, 1024 - 2, "CONTROL    :: Client sockets list is FULL [%s:%d] : Socket %d can not be saved and treated.\n", ipClientHDHR, portClientHDHR, acceptSocket);
+				_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Client sockets list is FULL [%s:%d] : Socket %d can not be saved and treated.\n", ipClientHDHR, portClientHDHR, acceptSocket);
 				m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 			}
 		}
@@ -253,8 +249,15 @@ int CControl::TreatReceivedData()
 	{
 		sock = m_clientSockets[i].clientSocket;
 
-		if (FD_ISSET(sock, &readfds))
+		if ( (sock != 0) && (FD_ISSET(sock, &readfds)) )
 		{
+/*			cliAddr.sin_addr.s_addr = inet_addr(CStringA(m_clientSockets[i].IP));
+			cliAddr.sin_family = AF_INET;
+			cliAddr.sin_port = htons(m_clientSockets[i].port);
+
+			//Obtain information of the client socket
+			getpeername(sock, (struct sockaddr*)&cliAddr, (int*)sizeof(struct sockaddr_in));
+*/			
 			setClientSocket(sock); //The socket to be treated in this iteration is saved
 			AssignClientIP(m_clientSockets[i].IP);
 			setCliHDHRPort(m_clientSockets[i].port);
@@ -273,15 +276,17 @@ int CControl::TreatReceivedData()
 
 					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
 					{
-						_snprintf(log_output, 1024 - 2, "CONTROL    :: Client socket disconnected   [%s:%d] : Socket %d\n", ipClientHDHR, portClientHDHR, sock);
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Client socket disconnected   [%s:%d] : Socket %d\n", ipClientHDHR, portClientHDHR, sock);
 						m_Traces->WriteTrace(log_output, LEVEL_TRZ_5);
 					}
 				}
 				else
 				{
-					_snprintf(log_output, 1024 - 2, "CONTROL    :: Error at RECV (sockets). Error code: %d\n", err);
+
+					_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Error at RECV (sockets). Error code: %d\n", err);
 					m_Traces->WriteTrace(log_output, ERR);
-					if (err == WSAECONNABORTED)
+					//if (err == WSAECONNABORTED)
+					if (err > 0)
 					{
 						//The socket is closed and is updated to 0 in the list
 						shutdown(sock, SD_BOTH);
@@ -291,7 +296,7 @@ int CControl::TreatReceivedData()
 						m_clientSockets[i].IP = CString("");
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
 						{
-							_snprintf(log_output, 1024 - 2, "CONTROL    :: Closing socket which had error              [%s:%d] : Socket %d\n", ipClientHDHR, portClientHDHR, sock);
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Closing socket which had error              [%s:%d] : Socket %d\n", ipClientHDHR, portClientHDHR, sock);
 							m_Traces->WriteTrace(log_output, LEVEL_TRZ_5);
 						}
 					}
@@ -307,10 +312,9 @@ int CControl::TreatReceivedData()
 						StartHDHRServer();
 
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
-							m_Traces->WriteTrace("CONTROL    :: RESTARTED CONTROL Process\n", LEVEL_TRZ_2);
+							m_Traces->WriteTrace("CONTROL    :: RESTARTED CONTROL Process because MAX-SOCKET-ERROR in client socket\n", LEVEL_TRZ_2);
 					}
 
-					delete[] ipClientHDHR;
 					return 0;
 				}
 			}
@@ -318,9 +322,6 @@ int CControl::TreatReceivedData()
 	}
 
 	wdControlErr = 0;
-
-	if (ipClientHDHR)
-		delete []ipClientHDHR;
 
 	return 1;
 }
@@ -346,6 +347,7 @@ void CControl::StopControl()
 
 			m_infoTuners[i].getTransportTuner()->setState(0);
 		}
+		ResetTuner(i);
 	}
 
 	m_libHDHR.StopSocketServTCP_Control();
@@ -392,7 +394,7 @@ int CControl::ObtainInfoCLi(int tuner)
 
 	aux = CString(m_infoTuners[tuner].getTarget());
 	m_cfgProxy->m_infoActualSelCli->target.Format(L"%s", aux);
-
+//	aux = CString(m_HDHRClientIP);
 	if (m_infoTuners[tuner].getChannelNotInMapList() != 0 && m_infoTuners[tuner].getState() == STANDBY)
 	{
 		m_cfgProxy->m_infoActualSelCli->channelNotInMapList = 1;
@@ -488,6 +490,16 @@ int CControl::ObtainInfoCLi(int tuner)
 		}
 	}
 
+	if (m_infoTuners[tuner].getState() == STREAMING)
+	{
+		m_cfgProxy->m_infoActualSelCli->readbuffer.Format(L"%d", m_infoTuners[tuner].getReadBufferStatus());
+		m_cfgProxy->m_infoActualSelCli->ringbuffer.Format(L"%d", m_infoTuners[tuner].getRingBufferStatus());
+	}
+	else
+	{
+		m_cfgProxy->m_infoActualSelCli->readbuffer.Format(L"");
+		m_cfgProxy->m_infoActualSelCli->ringbuffer.Format(L"");
+	}
 	return 1;
 }
 
@@ -512,7 +524,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 		{
 			if (m_cfgProxy->getLock())
 			{
-				strcpy(m_infoTuners[infoMsg->numTuner].getIPLockkey(), m_HDHRClientIP);
+				strcpy(m_infoTuners[infoMsg->numTuner].IPLockkey, m_HDHRClientIP);
 
 				if (!strcmp(infoMsg->setValue, "none") || !strcmp(infoMsg->setValue, "force"))
 				{
@@ -522,7 +534,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 					{
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 						{
-							_snprintf(log_output, 1024 - 2, "CONTROL    :: Client %s force unlock tuner %d (lockkey: %lu)\n", m_infoTuners[infoMsg->numTuner].IPLockkey, infoMsg->numTuner, m_infoTuners[infoMsg->numTuner].getLockkey());
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Client %s force unlock (lockkey: %lu)\n", infoMsg->numTuner, m_infoTuners[infoMsg->numTuner].IPLockkey, m_infoTuners[infoMsg->numTuner].getLockkey());
 							m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 						}
 					}
@@ -530,7 +542,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 					{
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 						{
-							_snprintf(log_output, 1024 - 2, "CONTROL    :: Client %s unlock tuner %d (lockkey: %lu)\n", m_infoTuners[infoMsg->numTuner].IPLockkey, infoMsg->numTuner, m_infoTuners[infoMsg->numTuner].lockkey);
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Client %s unlock (lockkey: %lu)\n", infoMsg->numTuner, m_infoTuners[infoMsg->numTuner].IPLockkey, m_infoTuners[infoMsg->numTuner].lockkey);
 							m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 						}
 					}
@@ -541,7 +553,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 					{
-						_snprintf(log_output, 1024 - 2, "CONTROL    :: Client %s lock tuner %d (lockkey: %lu)\n", m_infoTuners[infoMsg->numTuner].IPLockkey, infoMsg->numTuner, m_infoTuners[infoMsg->numTuner].getLockkey());
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Client %s lock (lockkey: %lu)\n", infoMsg->numTuner, m_infoTuners[infoMsg->numTuner].IPLockkey, m_infoTuners[infoMsg->numTuner].getLockkey());
 						m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 					}
 				}
@@ -579,7 +591,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 				{
 					char auxString[100];
 					memset(auxString, 0, 100);
-					_snprintf(auxString, 100 - 2, "tuner%d", i);
+					_snprintf(auxString, sizeof(auxString) - 2, "tuner%d", i);
 
 					if (!strcmp(infoMsg->setValue, auxString))
 					{
@@ -611,7 +623,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 					{
-						_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
 						m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 					}
 				}
@@ -619,14 +631,16 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 			else
 			{
 				//Obtain channel
-				char *ch = new char[25];
+				char ch[25];
+				char* chp;
+				//char *ch = new char[25];  //Bug!
 				strcpy(ch, infoMsg->setValue);
 				strtok(ch, ":");
-				ch = strtok(NULL, ":");
+				chp = strtok(NULL, ":");
 				long chan;
 				
-				if (ch != NULL)
-					chan = atoi(ch);
+				if (chp != NULL)
+					chan = atoi(chp);
 				else
 					chan = atoi(infoMsg->setValue);
 
@@ -638,9 +652,9 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 					{
-						_snprintf(log_output, 1024 - 2, "CONTROL    :: CHN of Tuner%d not found in MappingList [%s] : Response to set channel message [Channel/Freq %ld]\n", infoMsg->numTuner, m_HDHRClientIP, chan);
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] CHN not found in MappingList [%s] : Response to set channel message [Channel/Freq %ld]\n", infoMsg->numTuner, m_HDHRClientIP, chan);
 						m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
-						_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
 						m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 					}
 				}
@@ -654,7 +668,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 						{
-							_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: TNCH [%s] : Channel/freq: %ld\n", infoMsg->numTuner, m_HDHRClientIP, m_infoTuners[infoMsg->numTuner].getChannel());
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: TNCH [%s] : Channel/freq: %ld\n", infoMsg->numTuner, m_HDHRClientIP, m_infoTuners[infoMsg->numTuner].getChannel());
 							m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 						}
 					}
@@ -677,7 +691,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 						{
-							_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: FLTR [%s] : Program filtering: %d ; filtered PIDs of program: %s\n", infoMsg->numTuner, m_HDHRClientIP, m_infoTuners[infoMsg->numTuner].getProgram(), CStringA(m_infoTuners[infoMsg->numTuner].getPidsToFiltering()));
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: FLTR [%s] : Program filtering: %d ; filtered PIDs of program: %s\n", infoMsg->numTuner, m_HDHRClientIP, m_infoTuners[infoMsg->numTuner].getProgram(), CStringA(m_infoTuners[infoMsg->numTuner].getPidsToFiltering()));
 							m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 						}
 					}
@@ -693,9 +707,18 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 				{
 					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 					{
-						_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
 						m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 					}
+				}
+				else
+				{
+/*					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
+					{
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Change State of Tuner%d: TNCH [%s] : Channel/freq: %ld\n", infoMsg->numTuner, m_HDHRClientIP, m_infoTuners[infoMsg->numTuner].getChannel());
+						m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
+					}
+*/
 				}
 			}
 		}
@@ -717,7 +740,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 						{
 							if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 							{
-								_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STRM [%s] : Target: %s\n", infoMsg->numTuner, m_HDHRClientIP, m_infoTuners[infoMsg->numTuner].getTarget());
+								_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STRM [%s] : Target: %s\n", infoMsg->numTuner, m_HDHRClientIP, m_infoTuners[infoMsg->numTuner].getTarget());
 								m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 							}
 						}
@@ -725,12 +748,12 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 						{
 							if (m_Traces->IsLevelWriteable(LEVEL_TRZ_1))
 							{
-								_snprintf(log_output, 1024 - 2, "CONTROL    :: NOT possible change state to STREAMING, channel undefined [%s]: Channel is none of Tuner%d\n", m_HDHRClientIP, infoMsg->numTuner);
+								_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d]                    [%s] : NOT possible change state to STREAMING, channel undefined or none\n", infoMsg->numTuner, m_HDHRClientIP);
 								m_Traces->WriteTrace(log_output, LEVEL_TRZ_1);
 							}
 							if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 							{
-								_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STANDBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
+								_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STANDBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
 								m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 							}
 						}
@@ -738,7 +761,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 						{
 							if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 							{
-								_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: FLTR [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
+								_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: FLTR [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
 								m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 							}
 						}
@@ -749,12 +772,12 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_1))
 						{
-							_snprintf(log_output, 1024 - 2, "CONTROL    :: NOT possible change state to STREAMING, channel undefined [%s]: Channel is none of Tuner%d\n", m_HDHRClientIP, infoMsg->numTuner);
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d]                    [%s] : NOT possible change state to STREAMING, channel undefined or none\n", infoMsg->numTuner, m_HDHRClientIP);
 							m_Traces->WriteTrace(log_output, LEVEL_TRZ_1);
 						}
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 						{
-							_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STANDBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STANDBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
 							m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 						}
 					}
@@ -772,7 +795,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 						{
-							_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
 							m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 						}
 					}
@@ -782,7 +805,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 						{
-							_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: TNCH [%s] : Channel/freq: %ld\n", infoMsg->numTuner, m_HDHRClientIP, m_infoTuners[infoMsg->numTuner].canal);
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: TNCH [%s] : Channel/freq: %ld\n", infoMsg->numTuner, m_HDHRClientIP, m_infoTuners[infoMsg->numTuner].canal);
 							m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 						}
 					}
@@ -795,7 +818,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 						{
-							_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: FLTR [%s]: Target is setting to none\n", infoMsg->numTuner, m_HDHRClientIP);
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: FLTR [%s]: Target is setting to none\n", infoMsg->numTuner, m_HDHRClientIP);
 							m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 						}
 					}
@@ -808,6 +831,16 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 			break;
 		if (infoMsg->setMsg && infoMsg->setValue)
 		{
+				if ((strlen(infoMsg->setValue) == 6) && (strcmp(infoMsg->setValue, "bypass") == 0))
+				{
+					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_4))
+					{
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: 'bypass' set filter \n", infoMsg->numTuner);
+						m_Traces->WriteTrace(log_output, LEVEL_TRZ_4);
+					}
+					break;
+				}
+
 				if (m_infoTuners[infoMsg->numTuner].canal != 0 && m_cfgProxy->ObtainIndexChannel(m_infoTuners[infoMsg->numTuner].canal) != -1)
 				{
 					if (m_infoTuners[infoMsg->numTuner].getState() != STREAMING)
@@ -821,7 +854,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 					{
-						_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
 						m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 					}
 				}
@@ -876,7 +909,7 @@ void CControl::TreatTypeHDHRMessage(InfoMessageHDHR* infoMsg)
 
 		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 		{
-			_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
+			_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STBY [%s]\n", infoMsg->numTuner, m_HDHRClientIP);
 			m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 		}
 		m_infoTuners[infoMsg->numTuner].getTransportTuner()->setrefreshFailedConnHTTP(0);
@@ -922,6 +955,13 @@ int CControl::ReceiveTCPDataHDHR()
 		{
 			if (m_infoMsg->setMsg)
 			{
+				if (m_Traces->IsLevelWriteable(LEVEL_TRZ_4))
+				{
+					char log_output[1024];
+					memset(log_output, 0, 1024);
+					_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: lockkey ERROR (current=%lu,sended=%lu) \n", m_infoMsg->numTuner, m_infoTuners[m_infoMsg->numTuner].lockkey, m_infoMsg->IDLockkeyReceived);
+					m_Traces->WriteTrace(log_output, LEVEL_TRZ_4);
+				}
 				m_infoMsg->tipoMsg = ERROR_LOCKKEY_MSG;
 				strcpy(m_infoMsg->unknownMsg, m_infoMsg->peticionMsg);
 			}
@@ -946,7 +986,7 @@ void CControl::ResetTuner(int tuner)
 
 	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 	{
-		_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STBY [%s] : RESET TUNER from HDHRProxyIPTV App\n", tuner, m_HDHRClientIP);
+		_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STBY [%s] : RESET TUNER from HDHRProxyIPTV App\n", tuner, m_HDHRClientIP);
 		m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 	}
 }
@@ -964,7 +1004,7 @@ void CControl::ForceUnlockTuner(int tuner)
 
 		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 		{
-			_snprintf(log_output, 1024 - 2, "CONTROL    :: Force unlock tuner %d by HDHRProxyIPTV App\n", tuner);
+			_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Force unlock by HDHRProxyIPTV App\n", tuner);
 			m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 		}
 	}
@@ -999,9 +1039,9 @@ void CALLBACK CControl::TimerProcTuners(HWND hwnd, UINT uMsg, UINT idEvent, DWOR
 		{
 			if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
 			{
-				_snprintf(log_output, 1024 - 2, "CONTROL    :: TIMEOUT in received request from clients at Tuner %d.\n", i);
+				_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] TIMEOUT in received request from clients.\n", i);
 				m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
-				_snprintf(log_output, 1024 - 2, "CONTROL    :: Change State of Tuner%d: STBY [%s]: By timeout\n", i, m_HDHRClientIP);
+				_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: [Tuner %d] Change State: STBY [%s]: By timeout\n", i, m_HDHRClientIP);
 				m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 			}
 			m_cfgProxy->UpdateClientTOInterface(i);

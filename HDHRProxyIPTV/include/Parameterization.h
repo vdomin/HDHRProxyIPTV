@@ -79,7 +79,7 @@
 #define TUNERX_LOCKKEY_VALUE	"none"
 #define TUNERX_DEBUG_VALUE		"tun: ch=auto:%ld lock=%s:858000000 ss=%d snq=%d seq=%d dbg=8192-14030-1326/-38\ndev: bps = %ld resync = 0 overflow = 0\nts : bps = 0 te = 0 miss = 0 crc = 0\nnet : pps = 0 err = 0 stop = 0\n\n"
 #define TUNERX_CHANNEL_VALUE	"auto:%ld"
-#define TUNERX_CHANNELMAP_VALUE "eu-bcast"
+//#define TUNERX_CHANNELMAP_VALUE "eu-bcast"
 #define HELP_VALUE				"Supported configuration options:\n/ir/target <protocol>://<ip>:<port>\n/lineup/location <countrycode> : <postcode>\n/sys/copyright\n/sys/dvbc_modulation\n/sys/debug\n/sys/features\n/sys/hwmodel\n/sys/model\n/sys/restart <resource>\n/sys/version\n/tuner<n>/channel <modulation>:<freq | ch>\n/tuner<n>/channelmap <channelmap>\n/tuner<n>/debug\n/tuner<n>/filter \"0x<nnnn>-0x<nnnn> [...]\"\n/tuner<n>/lockkey\n/tuner<n>/program <program number>\n/tuner<n>/streaminfo\n/tuner<n>/status\n/tuner<n>/target <ip>:<port>\n"
 
 //Default values to HDHR response wich are obtained of configuration file
@@ -87,7 +87,8 @@
 #define SYS_MODEL_VALUE			"\"hdhomerun_dvbt\""
 #define SYS_HWMODEL_VALUE		"\"HDHR-EU\""
 #define SYS_COPYRIGHT_VALUE		"\"HDHR Emulator, GPL.\""
-#define SYS_DVBC_MODULATION_VALUE "\"\""
+#define SYS_DVBC_MODULATION_VALUE "\"qam64\""
+#define SYS_CHANNEL_MAP_VALUE   "\"eu-bcast\""
 #define SYS_FEATURES_VALUE		"\"[channelmap: eu-bcast eu-cable au-bcast au-cable tw-bcast tw-cable][modulation : t8qam64 t8qam16 t8qpsk t7qam64 t7qam16 t7qpsk t6qam64 t6qam16 t6qpsk a8qam256 - *a8qam128 - *a8qam64 - *a7qam256 - *a7qam128 - *a7qam64 - *a6qam256 - *a6qam128 - *a6qam64 - *][auto - modulation : auto auto8t auto7t auto6t auto8c auto7c auto6c]\""
 #define SYS_DEBUG_VALUE			"\"[mem: nbm=104/100 qwm=6 npf=596 dmf=238][loop: pkt=0][t0: pt=9 cal=16589-12782 bsw=155/435][t1: pt=9 cal=16181-12777 bsw=155/435][eth: link=100f]\""
 #define LINEUP_LOC_VALUE		"\"ES:00000\""

@@ -43,12 +43,12 @@ int CDiscovery::InicializeListenCliHDHR()
 		return 0;
 
 	m_Traces->WriteTrace("DISCOVERY  :: HDHR server ready to receive Discovery messages\n", LEVEL_TRZ_2);
-	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
+	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_3))
 	{
 		char log_output[1024];
 		memset(log_output, 0, 1024);
-		_snprintf(log_output, 1024 - 2, "DISCOVERY  :: Listening by [UDP] %s:%d\n", CStringA(m_ipHDHR), HDHOMERUN_DISCOVER_UDP_PORT);
-		m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
+		_snprintf(log_output, sizeof(log_output) - 2, "DISCOVERY  :: Listening by [UDP] %s:%d\n", CStringA(m_ipHDHR), HDHOMERUN_DISCOVER_UDP_PORT);
+		m_Traces->WriteTrace(log_output, LEVEL_TRZ_3);
 	}
 	return 1;
 }
@@ -61,36 +61,36 @@ void CDiscovery::StopDiscovery()
 int CDiscovery::TreatReceivedData()
 {
 	int res = 0;
+	char log_output[1024];
+	memset(log_output, 0, 1024);
 
 	res = m_libHDHR.ReceiveDataDiscoveryUDP(m_Traces);
+	//Message
 
 	if (res)
 	{
 		m_countMsg++;
 
-		char log_output[1024];
-		memset(log_output, 0, 1024);
-
-		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_3))
+		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_4))
 		{
-			_snprintf(log_output, 1024 - 2, "DISCOVERY  :: -->    Received message      [%s:%d] {%06d} : UDP Discovery\n", m_libHDHR.getDiscIPClientHDHR(), m_libHDHR.getPortClientHDHR(), m_countMsg);
-			m_Traces->WriteTrace(log_output, LEVEL_TRZ_3);
+			_snprintf(log_output, sizeof(log_output) - 2, "DISCOVERY  :: -->    Received message      [%s:%d] {%06d} : UDP Discovery\n", m_libHDHR.getDiscIPClientHDHR(), m_libHDHR.getPortClientHDHR(), m_countMsg);
+			m_Traces->WriteTrace(log_output, LEVEL_TRZ_4);
 		}
 
-		if (!m_libHDHR.SendResponseDiscovery(m_idHDHRDevice)) 
+		if (!m_libHDHR.SendResponseDiscovery(m_idHDHRDevice)) //ID_DISP_SERV_HDHR o cambio por el usuario
 		{
 			return KO;
 		}
 
+		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_4))
+		{
+			_snprintf(log_output, sizeof(log_output) - 2, "DISCOVERY  ::    <-- Send message          [%s:%d] {%06ld} : UDP Discovery\n", m_libHDHR.getDiscIPClientHDHR(), m_libHDHR.getPortClientHDHR(), m_countMsg);
+			m_Traces->WriteTrace(log_output, LEVEL_TRZ_4);
+		}
 		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_3))
 		{
-			_snprintf(log_output, 1024 - 2, "DISCOVERY  ::    <-- Send message          [%s:%d] {%06ld} : UDP Discovery\n", m_libHDHR.getDiscIPClientHDHR(), m_libHDHR.getPortClientHDHR(), m_countMsg);
+			_snprintf(log_output, sizeof(log_output) - 2, "DISCOVERY  :: Send UDP Discovery message   [%s:%d]\n", m_libHDHR.getDiscIPClientHDHR(), m_libHDHR.getPortClientHDHR());
 			m_Traces->WriteTrace(log_output, LEVEL_TRZ_3);
-		}
-		if (m_Traces->IsLevelWriteable(LEVEL_TRZ_2))
-		{
-			_snprintf(log_output, 1024 - 2, "DISCOVERY  :: Send UDP Discovery message   [%s:%d]\n", m_libHDHR.getDiscIPClientHDHR(), m_libHDHR.getPortClientHDHR(), m_countMsg);
-			m_Traces->WriteTrace(log_output, LEVEL_TRZ_2);
 		}
 		return SEND_OK;
 	}
