@@ -107,7 +107,7 @@ int CGestionProxy::InitializeProxy(int trace, CString idDisp, CString ipHDHR)
 		m_Traces->WriteTrace(nvl, LEVEL_TRZ_1);
 
 		m_Traces->WriteTrace("******************* Start HDHR IPTV Proxy *******************\n", LEVEL_TRZ_1);
-		m_Traces->WriteTrace("*** Version HDHRProxyIPTV Application: v1.0.3k\n", LEVEL_TRZ_1);
+		m_Traces->WriteTrace("*** Version HDHRProxyIPTV Application: v1.0.3l\n", LEVEL_TRZ_1);
 		CStringA idDispTmp(idDisp);
 		CStringA ipHDHRTmp(ipHDHR);
 		_snprintf(nvl, sizeof(nvl) - 2, "*** Device ID: %s\n", idDispTmp);

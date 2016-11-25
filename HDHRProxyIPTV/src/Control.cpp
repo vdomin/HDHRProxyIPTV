@@ -37,6 +37,14 @@ CControl::CControl()
 	m_numClientSockets = 12 + (10 * m_cfgProxy->getTunersNumber());
 	m_clientSockets = new InfoClientSocket[m_numClientSockets];
 
+	//Initilize Client Sockets
+	for (int i = 0; i < m_numClientSockets; i++)
+	{
+		m_clientSockets[i].clientSocket = 0;
+		m_clientSockets[i].port = 0;
+		m_clientSockets[i].IP = CString("");
+	}
+
 	wdControlErr = 0;
 	wdControlErr_Count = 10;
 	
@@ -125,15 +133,6 @@ void CControl::AssignIDDevice(CString idD)
 
 int CControl::StartHDHRServer()
 {
-	int i;
-
-	for (i = 0; i < m_numClientSockets; i++)
-	{
-		m_clientSockets[i].clientSocket = 0;
-		m_clientSockets[i].port = 0;
-		m_clientSockets[i].IP = CString("");
-	}
-
 	//Create TCP socket for Control phase
 	AssignIP(m_cfgProxy->m_hdhrServerIP);
 	if (!m_libHDHR.CreateSocketServTCP_Control(&mainSocket, m_Traces))
@@ -265,8 +264,14 @@ int CControl::TreatReceivedData()
 			if (ReceiveTCPDataHDHR() == 0)
 			{
 				err = WSAGetLastError();
-				if (err == WSAECONNRESET || err == 0) //The client close the connection
+				if (err == WSAECONNRESET || err == 0) //The client closes the connection
 				{
+					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
+					{
+						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Client socket disconnected   [%s:%d] : Socket %d\n", ipClientHDHR, portClientHDHR, sock);
+						m_Traces->WriteTrace(log_output, LEVEL_TRZ_5);
+					}
+
 					//The socket is closed and is updated to 0 in the list
 					shutdown(sock, SD_BOTH);
 					closesocket(sock);
@@ -274,31 +279,27 @@ int CControl::TreatReceivedData()
 					m_clientSockets[i].port = 0;
 					m_clientSockets[i].IP = CString("");
 
-					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
-					{
-						_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Client socket disconnected   [%s:%d] : Socket %d\n", ipClientHDHR, portClientHDHR, sock);
-						m_Traces->WriteTrace(log_output, LEVEL_TRZ_5);
-					}
 				}
 				else
 				{
-
 					_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Error at RECV (sockets). Error code: %d\n", err);
+
 					m_Traces->WriteTrace(log_output, ERR);
 					//if (err == WSAECONNABORTED)
 					if (err > 0)
 					{
+						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
+						{
+							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Closing socket which had error              [%s:%d] : Socket %d\n", ipClientHDHR, portClientHDHR, sock);
+							m_Traces->WriteTrace(log_output, LEVEL_TRZ_5);
+						}
+
 						//The socket is closed and is updated to 0 in the list
 						shutdown(sock, SD_BOTH);
 						closesocket(sock);
 						m_clientSockets[i].clientSocket = 0;
 						m_clientSockets[i].port = 0;
 						m_clientSockets[i].IP = CString("");
-						if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
-						{
-							_snprintf(log_output, sizeof(log_output) - 2, "CONTROL    :: Closing socket which had error              [%s:%d] : Socket %d\n", ipClientHDHR, portClientHDHR, sock);
-							m_Traces->WriteTrace(log_output, LEVEL_TRZ_5);
-						}
 					}
 
 					wdControlErr++;

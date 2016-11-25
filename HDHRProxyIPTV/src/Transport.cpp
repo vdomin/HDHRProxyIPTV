@@ -404,13 +404,22 @@ int CTransport::TreatReceivedDataUDP()
 		RecvAddr.sin_port = htons(m_portSend);
 		RecvAddr.sin_addr.s_addr = inet_addr(m_ipSend);
 
-		res = sendto(m_socketUDP,
-			RecvBuf,
-			BufLen,
-			0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
-
-		if (res == SOCKET_ERROR) {
-			_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Error %d sending UDP data.\n", m_tuner, WSAGetLastError());
+		int ntry = 0;
+		while (ntry<5)
+		{
+			res = sendto(m_socketUDP,
+				RecvBuf,
+				BufLen,
+				0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
+			if (res == SOCKET_ERROR)
+			{
+				Sleep(50);
+				ntry++;
+			}
+			else break;
+		}
+		if (ntry>=5) {
+			_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Error=%d sending UDP data.\n", m_tuner, WSAGetLastError());
 			m_Traces->WriteTrace(log_output, ERR);
 			delete[] RecvBuf;
 			return 0;
@@ -609,17 +618,28 @@ int CTransport::TreatReceivedDataHTTP()
 	}
 
 	//Send an initial UDP datagram (7 TS packets with null padding). It's like say OK to client.
-	res = sendto(m_socketUDP,
-		nullPaddingPckt,
-		MAX_SIZE_DATAGRAM_TO_SEND,
-		0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
-	if (res == SOCKET_ERROR)
+	int ntry = 0;
+	while (ntry<5)
 	{
-		_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Error sending initial packet to UDP with padding %s:%d\n", m_tuner, m_ipSend, m_portSend);
+		res = sendto(m_socketUDP,
+			nullPaddingPckt,
+			MAX_SIZE_DATAGRAM_TO_SEND,
+			0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
+		if (res == SOCKET_ERROR)
+		{
+			Sleep(50);
+			ntry++;
+		}
+		else break;
+	}
+	if (ntry>=5)
+	{
+		_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Error=%d sending initial packet to UDP with padding %s:%d\n", m_tuner, WSAGetLastError(), m_ipSend, m_portSend);
 		m_Traces->WriteTrace(log_output, ERR);
 
 		return 0;
 	}
+	
 	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_4))
 	{
 		_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Send an initial UDP datagram with %d null padding packets to client.\n", m_tuner, NUM_PACKETS_TO_SEND);
@@ -716,13 +736,23 @@ int CTransport::TreatReceivedDataHTTP()
 			notstream++;
 
 			//Send out UDP NULL datagram (7 TS packets with null padding). It's like say ALIVE to client.
-			res = sendto(m_socketUDP,
-				nullPaddingPckt,
-				MAX_SIZE_DATAGRAM_TO_SEND,
-				0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
-			if (res == SOCKET_ERROR)
+			int ntry = 0;
+			while (ntry<5)
 			{
-				_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Error sending alive NULL packet to UDP with padding %s:%d\n", m_tuner, m_ipSend, m_portSend);
+				res = sendto(m_socketUDP,
+					nullPaddingPckt,
+					MAX_SIZE_DATAGRAM_TO_SEND,
+					0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
+				if (res == SOCKET_ERROR)
+				{
+					Sleep(50);
+					ntry++;
+				}
+				else break;
+			}
+			if (ntry>=5)
+			{
+				_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Error=%d sending alive NULL packet to UDP with padding %s:%d\n", m_tuner, WSAGetLastError(), m_ipSend, m_portSend);
 				m_Traces->WriteTrace(log_output, ERR);
 
 				return 0;
@@ -975,13 +1005,23 @@ int CTransport::TreatReceivedDataHTTP()
 				m_Traces->WriteTrace("TRANSPORT  :: [Tuner -] re-SYNC: Not found mark, retrying... \n", LEVEL_TRZ_5);
 
 				// Send new UDP datagram with null padding, as keepalive to client.
-				res = sendto(m_socketUDP,
-					nullPaddingPckt,
-					MAX_SIZE_DATAGRAM_TO_SEND,
-					0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
-				if (res == SOCKET_ERROR)
+				int ntry = 0;
+				while (ntry<5)
 				{
-					_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Error sending initial packet to UDP with padding %s:%d\n", m_tuner, m_ipSend, m_portSend);
+					res = sendto(m_socketUDP,
+						nullPaddingPckt,
+						MAX_SIZE_DATAGRAM_TO_SEND,
+						0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
+					if (res == SOCKET_ERROR)
+					{
+						Sleep(50);
+						ntry++;
+					}
+					else break;
+				}
+				if (ntry>=5)
+				{
+					_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Error=%d sending initial packet to UDP with padding %s:%d\n", m_tuner, WSAGetLastError(), m_ipSend, m_portSend);
 					m_Traces->WriteTrace(log_output, ERR);
 
 					return 0;
@@ -1075,18 +1115,28 @@ int CTransport::TreatReceivedDataHTTP()
 						m_Traces->WriteTrace("TRANSPORT  :: [Tuner -] PROBLEM  :  Sent to client less than 7 packets!!!\n", LEVEL_TRZ_3);
 
 					//Send UDP Datagram:
-					res = sendto(m_socketUDP,
-						dataR,
-						udp_send,
-						0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
-
-					if (res < 0)
+					int ntry = 0;
+					while (ntry<5)
 					{
-						_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Sent to [UDP://%s:%d] : Error sending packet! \n", m_tuner, m_ipSend, m_portSend);
+						res = sendto(m_socketUDP,
+							dataR,
+							udp_send,
+							0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
+						if (res == SOCKET_ERROR)
+						{
+							Sleep(50);
+							ntry++;
+						}
+						else break;
+					}
+					if (ntry>=5)
+					{
+						_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Sent to [UDP://%s:%d] : Error=%d sending packet! \n", m_tuner, m_ipSend, m_portSend, WSAGetLastError());
 						m_Traces->WriteTrace(log_output, ERR);
 
 						return 0;
 					}
+
 					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
 					{
 						_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Sent to [UDP://%s:%d] :   %d bytes (%d waiting).\n", m_tuner, m_ipSend, m_portSend, udp_send, tamSend);
@@ -1341,21 +1391,31 @@ int CTransport::SendNullPackets()
 	RecvAddr.sin_port = htons(m_portSend);
 	RecvAddr.sin_addr.s_addr = inet_addr(m_ipSend);
 
-	res = sendto(m_socketUDP,
-		nullPaddingPckt,
-		MAX_SIZE_DATAGRAM_TO_SEND,
-		0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
-
-	if (res == SOCKET_ERROR)
+	int ntry = 0;
+	while (ntry<5)
+	{
+		res = sendto(m_socketUDP,
+			nullPaddingPckt,
+			MAX_SIZE_DATAGRAM_TO_SEND,
+			0, (SOCKADDR *)& RecvAddr, sizeof(RecvAddr));
+		if (res == SOCKET_ERROR)
+		{
+			Sleep(50);
+			ntry++;
+		}
+		else break;
+	}
+	if (ntry>=5)
 	{
 		if (getState() != 0)
 		{
-			snprintf(trace, sizeof(trace) - 2, "TRANSPORT  :: [Tuner %d] Error sending null packet to UDP with padding %s:%d\n", m_tuner, m_ipSend, m_portSend);
+			snprintf(trace, sizeof(trace) - 2, "TRANSPORT  :: [Tuner %d] Error=%d sending null packet to UDP with padding %s:%d\n", m_tuner, WSAGetLastError(), m_ipSend, m_portSend);
 			m_Traces->WriteTrace(trace, ERR);
 		}
 
 		return 0;
 	}
+	
 	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_4))
 	{
 		snprintf(trace, sizeof(trace) - 2, "TRANSPORT  :: [Tuner %d] Send an UDP datagram with %d null padding packets to client.\n", m_tuner, NUM_PACKETS_TO_SEND);
