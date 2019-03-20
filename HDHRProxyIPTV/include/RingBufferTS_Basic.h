@@ -34,7 +34,7 @@
 #include<time.h>
 
 
-/*Define to add padding value 'ÿ'(ascii)/0xff(hexadecimal) at data obtained from buffer if the number of packets is lower than 7 */
+/*Define to add padding data when the number of TS packets is lower than 7 */
 #define AddPaddingToTSPacket
 
 #define MAX_SIZE_DATAGRAM_TO_SEND 7*188 //1316
@@ -66,9 +66,6 @@ public:
 	int m_applyPidFiltering;
 	int getapplyPidFiltering() { return m_applyPidFiltering;  }
 	CTrace* m_Traces;
-
-	int m_BusySpaceCopy;
-	int m_posReadCopy;
 
 	SYSTEMTIME m_timeLastSending;
 
