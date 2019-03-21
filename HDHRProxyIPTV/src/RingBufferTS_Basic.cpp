@@ -165,13 +165,14 @@ int CRingBufferTS_Basic::GetData(char* data, int size)
 	return size;
 }
 
-int CRingBufferTS_Basic::GetMultipleTSPacket(char* data, int numMaxPackets)
+int CRingBufferTS_Basic::GetMultipleTSPacket(char* data, int numMaxPackets, unsigned int numPadding[1])
 {
 	char packet[188];
 	int numTSPackets = 0;
 	char log_output[1024];
 	memset(log_output, 0, 1024);
 	int pass_all_pids = 0;
+	int numNulls = 0;
 
 	//m_Traces->WriteTrace("TRANSPORT  :: **** START TREATMENT OF GETTING Packets of buffer to send ****\n", LEVEL_TRZ_6);
 
@@ -227,7 +228,7 @@ int CRingBufferTS_Basic::GetMultipleTSPacket(char* data, int numMaxPackets)
 
 	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_6))
 	{
-		_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Read from Ring Buffer to send: %d bytes. %d packets. More Info Buffer: Read Position[%d]; Write Position[%d]; Free Space[%d]\n",
+		_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Read from Ring Buffer >>> %5d bytes; %02d packets.    More Info Buffer: Read Position[%05d]; Write Position[%05d]; Free Space[%05d]\n",
 			m_tuner, numTSPackets * 188, numTSPackets, m_posRead, m_posWrite, m_freeSpace);
 		m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
 	}
@@ -244,6 +245,7 @@ int CRingBufferTS_Basic::GetMultipleTSPacket(char* data, int numMaxPackets)
 			m_Traces->WriteTrace(log_output, LEVEL_TRZ_5);
 		}
 
+		numNulls++;
 		numTSPackets += numDummyPackets;
 		m_nullPacketsSent += numDummyPackets;
 	}
@@ -254,6 +256,7 @@ int CRingBufferTS_Basic::GetMultipleTSPacket(char* data, int numMaxPackets)
 
 	//m_Traces->WriteTrace("TRANSPORT  :: ****  END  TREATMENT OF GETTING Packets of buffer to send ****\n", LEVEL_TRZ_6);
 
+	numPadding[0] = numNulls;
 	return numTSPackets * 188;
 }
 
