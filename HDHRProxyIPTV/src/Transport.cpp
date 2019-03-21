@@ -83,6 +83,13 @@ void CTransport::StopThreadTransport()
 		TerminateThread(hThreadTransport, 1002);
 		hThreadTransport = 0;
 	}
+
+	if (m_socketHTTP > 0)
+		closesocket(m_socketHTTP);
+	m_socketHTTP = -1;
+	if (m_socketUDP > 0)
+		closesocket(m_socketUDP);
+	m_socketUDP = -1;
 }
 
 CTransport::CTransport()
@@ -284,6 +291,9 @@ int CTransport::InitializeTransportStreamUDP()
 		return 0;
 	}
 
+	int bufsize = (2000000 / 1316) * 1316;
+	setsockopt(m_socketUDP, SOL_SOCKET, SO_SNDBUF, (char*)&bufsize, sizeof(bufsize));
+
 	//If the protocol of input is HTTP, only it needs to create the UDP socket for to forward
 	//by him the TS received for HTTP, no need to perform the following steps of this function
 	if (m_typeTransportInput == HTTP_TS)
@@ -310,6 +320,7 @@ int CTransport::InitializeTransportStreamUDP()
 	{
 		res = WSAGetLastError();
 		closesocket(m_socketUDP);
+		m_socketUDP = -1;
 		char * log_output = new char[1024];
 		memset(log_output, 0, 1024);
 
@@ -436,7 +447,8 @@ void CTransport::StopTransportStreamUDP()
 	if (getState() == 1)
 	{
 		shutdown(m_socketUDP, SD_BOTH);
-		closesocket(m_socketUDP);
+		//closesocket(m_socketUDP);
+		//m_socketUDP = -1;
 	}
 }
 
@@ -541,7 +553,7 @@ int CTransport::InitilizeTransportStreamHTTP()
 		m_Traces->WriteTrace(log_output, ERR);
 		shutdown(m_socketHTTP, SD_BOTH);
 		closesocket(m_socketHTTP);
-		m_socketHTTP = 0;
+		m_socketHTTP = -1;
 		return 0;
 	}
 
@@ -612,6 +624,7 @@ int CTransport::TreatReceivedDataHTTP()
 		{
 			shutdown(m_socketHTTP, SD_BOTH);
 			closesocket(m_socketHTTP);
+			m_socketHTTP = -1;
 			return -1;
 		}
 		return 0;
@@ -700,9 +713,10 @@ int CTransport::TreatReceivedDataHTTP()
 					m_Traces->WriteTrace(log_output, LEVEL_TRZ_6);
 				}
 				//recv_size = 0;
-				shutdown(m_socketHTTP, SD_BOTH);
-				closesocket(m_socketHTTP);
-				return -1;
+				//shutdown(m_socketHTTP, SD_BOTH);
+				//closesocket(m_socketHTTP);
+				//m_socketHTTP = -1;
+				//return -1;
 			}
 			else
 			{
@@ -714,6 +728,7 @@ int CTransport::TreatReceivedDataHTTP()
 				}
 				shutdown(m_socketHTTP, SD_BOTH);
 				closesocket(m_socketHTTP);
+				m_socketHTTP = -1;
 				return -1;
 			}
 
@@ -763,6 +778,7 @@ int CTransport::TreatReceivedDataHTTP()
 				m_Traces->WriteTrace("TRANSPORT  :: [Tuner -] Closing Stream Socket because several timeouts.\n", LEVEL_TRZ_3);
 				shutdown(m_socketHTTP, SD_BOTH);
 				closesocket(m_socketHTTP);
+				m_socketHTTP = -1;
 				return -1;
 			}
 
@@ -841,6 +857,7 @@ int CTransport::TreatReceivedDataHTTP()
 
 				shutdown(m_socketHTTP, SD_BOTH);
 				closesocket(m_socketHTTP);
+				m_socketHTTP = -1;
 				return -1;
 			}
 			else
@@ -1033,6 +1050,7 @@ int CTransport::TreatReceivedDataHTTP()
 					m_Traces->WriteTrace("TRANSPORT  :: [Tuner -] re-SYNC: Closing Stream Socket because impossible to sync.\n", LEVEL_TRZ_3);
 					shutdown(m_socketHTTP, SD_BOTH);
 					closesocket(m_socketHTTP);
+					m_socketHTTP = -1;
 					return -1;
 				}
 			}
@@ -1162,13 +1180,19 @@ void CTransport::StopTransportStreamHTTP()
 
 		m_Traces->WriteTrace("TRANSPORT  :: [Tuner -] Closing HTTP socket.\n", LEVEL_TRZ_5);
 
-		shutdown(m_socketHTTP, SD_BOTH);
-		closesocket(m_socketHTTP);
-		m_socketHTTP = 0;
+		if (m_socketHTTP > 0)
+		{
+			shutdown(m_socketHTTP, SD_BOTH);
+			//closesocket(m_socketHTTP);
+			//m_socketHTTP = -1;
+		}
 
-		shutdown(m_socketUDP, SD_BOTH);
-		closesocket(m_socketUDP);
-		m_socketUDP = 0;
+		if (m_socketUDP > 0)
+		{
+			shutdown(m_socketUDP, SD_BOTH);
+			//closesocket(m_socketUDP);
+			//m_socketUDP = -1;
+		}
 
 		m_Traces->WriteTrace("DBG        :: [Tuner -] End Closing HTTP socket.\n", LEVEL_TRZ_6);
 	}
@@ -1435,6 +1459,7 @@ void CTransport::ReconnectHTTP()
 
 	shutdown(m_socketHTTP, SD_BOTH);
 	closesocket(m_socketHTTP);
+	m_socketHTTP = -1;
 
 	if (m_Traces->IsLevelWriteable(LEVEL_TRZ_3) && (getState() != 0))
 	{
