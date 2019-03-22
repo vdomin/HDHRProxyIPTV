@@ -32,7 +32,7 @@ CRingBufferTS_Basic::CRingBufferTS_Basic()
 	memset(m_buffer, 0, sizeof(m_buffer));
 	m_posWrite = 0;
 	m_posRead = 0;
-	m_bufferSize = sizeof(m_buffer); //78960;
+	m_bufferSize = sizeof(m_buffer);
 	m_freeSpace = m_bufferSize;
 	m_BusySpace = 0;
 	m_pidsToFilterList.Format(L"");
