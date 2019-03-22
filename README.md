@@ -7,22 +7,29 @@ receive these flows is the HTTP protocol. These flows are sent on demand to cust
 they expect. You can consider this tool as one HDHomeRun Emulator.
 
 
+Last release: 1.0.3m (2019-03-22)
+https://github.com/dsaupf/HDHRProxyIPTV/raw/master/Release/HDHRProxyIPTV.exe
+
 Notes:
 
-* The HDHRProxyIPTV project uses the original library of HDHomeRun, libhdhomerun, 
-  (http://www.silicondust.com/support/downloads/linux/ -> libhdhomerun (source)), 
+* The HDHRProxyIPTV project uses the original library of HDHomeRun (`libhdhomerun_.lib`), 
+  (http://www.silicondust.com/support/downloads/linux/ -> get libhdhomerun source), 
   specifically the version 20100213.
-  (Now are included the library headers and .lib binary inside "\HDHRProxyIPTV\libs" subdirectory)
+  (Current versions include the library headers and the .lib binary inside the "\HDHRProxyIPTV\libs" subdirectory)
 
-* The project can be compiled with Visual Studio 2013 & 2015 Community Edition.
+* The project can be compiled with Visual Studio 2013, 2015 & 2017 Community Edition.
 
-* You can found one precompiled Windows binarie inside the project "\Release" subdirectory.
+* You can found one precompiled Windows binary inside the "\Release" subdirectory.
 
-* Edit the file "HDHRProxyIPTV_MappingList.ini" for configure your environment.
+* Edit the file "HDHRProxyIPTV_MappingList.ini" for your environment.
 
-* You can execute this program in a Linux environment using Wine.
+* As input only the HTTP protocol is supported at time (UDP not enabled). 
+
+* You can execute this program in a Linux environment using Wine (even as daemon using Xpra).
+
+* Inputs can be _any_ Transport Stream, however they need to be compatible with DTV standards.
 
 * Tested programs to feed this proxy:
+  - minisatip: http://github.com/catalinii/minisatip (_recommended_)
   - udpxy: http://sourceforge.net/projects/udpxy/
   - UDP-to-HTTP proxy (Windows): http://borpas.info/utils
-  - minisatip: http://github.com/catalinii/minisatip
