@@ -760,7 +760,7 @@ int CTransport::TreatReceivedDataHTTP()
 			}
 	        }
 		recv_size = r_size;
-		if (r_size > 0)
+		if (r_offset > 0)
 		{
 			if (m_Traces->IsLevelWriteable(LEVEL_TRZ_4))
 			{
