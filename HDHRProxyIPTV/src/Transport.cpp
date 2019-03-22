@@ -1195,6 +1195,9 @@ int CTransport::TreatReceivedDataHTTP()
 					if (udp_send < 1316)
 						m_Traces->WriteTrace("TRANSPORT  :: [Tuner -] PROBLEM  :  Sent to client less than 7 packets!!!\n", LEVEL_TRZ_3);
 
+					//This terrible hack tries to overcome the problem when the IP stack reorders/swap UDP packets
+					FILE* nulfile = fopen("NUL:", "w"); fprintf(nulfile," "); fclose(nulfile);
+
 					//Send UDP Datagram:
 					int ntry = 0;
 					while (ntry<5)
@@ -1220,6 +1223,9 @@ int CTransport::TreatReceivedDataHTTP()
 						return 0;
 					}
 
+					//The hack triggers the file(socket) event loop two times: before and after send each UDP packet!
+					nulfile = fopen("NUL:", "w"); fprintf(nulfile," "); fclose(nulfile);
+
 					if (m_Traces->IsLevelWriteable(LEVEL_TRZ_5))
 					{
 						_snprintf(log_output, sizeof(log_output) - 2, "TRANSPORT  :: [Tuner %d] Sent to [UDP://%s:%d] : %5d bytes (waiting:%05d).\n", m_tuner, m_ipSend, m_portSend, udp_send, tamSend);
@@ -1230,7 +1236,7 @@ int CTransport::TreatReceivedDataHTTP()
 					if (numPadding[0] > 0)
 					{
 						// Slow down a bit!
-						Sleep(15);
+						//Sleep(15);
 						m_basicRingBuffer->m_lockaheads++;
 						m_Traces->WriteTrace("TRANSPORT  :: [Tuner -] Slow down a bit.\n", LEVEL_TRZ_4);
 					}
